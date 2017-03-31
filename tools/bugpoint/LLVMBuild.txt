@@ -25,6 +25,7 @@ required_libraries =
  BitWriter
  CodeGen
  IRReader
+ TransformLiquidTypes
  IPO
  Instrumentation
  Linker

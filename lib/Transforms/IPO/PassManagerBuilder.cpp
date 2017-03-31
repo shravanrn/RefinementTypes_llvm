@@ -34,6 +34,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/ForceFunctionAttrs.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
+#include "llvm/Transforms/LiquidTypes/RefinementChecker.h"
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Scalar.h"
@@ -445,7 +446,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createIPSCCPPass());          // IP SCCP
     MPM.add(createGlobalOptimizerPass()); // Optimize out global vars
     // Promote any localized global vars.
-    MPM.add(createPromoteMemoryToRegisterPass());
+    MPM.add(createPromoteMemoryToRegisterPass()); MPM.add(createRefinementCheckerPass());
 
     MPM.add(createDeadArgEliminationPass()); // Dead argument elimination
 
