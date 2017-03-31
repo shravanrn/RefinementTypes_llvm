@@ -1,4 +1,5 @@
 #include "llvm/Transforms/LiquidTypes/FixpointConstraintBuilder.h"
+#include "llvm/Transforms/LiquidTypes/RefinementUtils.h"
 #include <regex>
 #include <sstream>
 namespace liquid {
@@ -174,7 +175,7 @@ namespace liquid {
 
 		auto environmentBinderIds = getEnvironmentBinderIds(binderNameMapping, environmentBinders);
 		auto environmentBinderInfoIds = getEnvironmentBinderIds(binderInformationNameMapping, binderInformation);
-		auto allBinderIds = vectorAppend(environmentBinderIds, environmentBinderInfoIds);
+		auto allBinderIds = RefinementUtils::vectorAppend(environmentBinderIds, environmentBinderInfoIds);
 
 		auto refineId = getFreshRefinementId();
 		auto wellformednessConstraint = std::make_unique<WellFormednessConstraint>(refineId, type, allBinderIds);
@@ -303,8 +304,8 @@ namespace liquid {
 		auto environmentBinderInfoIds = getEnvironmentBinderIds(binderInformationNameMapping, binderInformation);
 		auto futureBindersIds = getEnvironmentBinderIds(futureBindersMapping, futureBinders);
 
-		auto tmp = vectorAppend(environmentBinderIds, environmentBinderInfoIds);
-		auto allBinderIds = vectorAppend(tmp, futureBindersIds);
+		auto tmp = RefinementUtils::vectorAppend(environmentBinderIds, environmentBinderInfoIds);
+		auto allBinderIds = RefinementUtils::vectorAppend(tmp, futureBindersIds);
 
 		auto constraint = std::make_unique<Constraint>(constraintId, constraintName, targetBinder->Type, qualifiers, targetBinder->Qualifiers, allBinderIds);
 		constraintNameMapping[constraintName] = constraint.get();
@@ -374,7 +375,7 @@ namespace liquid {
 						<< " : { __value : "
 						<< FixpointBaseTypeStrings[binder->Type]
 						<< " | "
-						<< stringJoin(" && ", binder->Qualifiers)
+						<< RefinementUtils::stringJoin(" && ", binder->Qualifiers)
 						<< " }\n";
 				}
 			}
@@ -385,17 +386,17 @@ namespace liquid {
 			{
 				outputBuff << "constraint:\n"
 					<< "  env ["
-					<< stringJoin(";", constraint->BinderReferences)
+					<< RefinementUtils::stringJoin(";", constraint->BinderReferences)
 					<< "]\n"
 					<< "  lhs { __value : "
 					<< FixpointBaseTypeStrings[constraint->Type]
 					<< " | "
-					<< stringJoin(" && ", constraint->Qualifiers)
+					<< RefinementUtils::stringJoin(" && ", constraint->Qualifiers)
 					<< " }\n"
 					<< "  rhs { __value : "
 					<< FixpointBaseTypeStrings[constraint->Type]
 					<< " | "
-					<< stringJoin(" && ", constraint->TargetQualifiers)
+					<< RefinementUtils::stringJoin(" && ", constraint->TargetQualifiers)
 					<< " }\n"
 					<< "  id "
 					<< constraint->Id
@@ -406,7 +407,7 @@ namespace liquid {
 			{
 				outputBuff << "wf:\n"
 					<< "  env ["
-					<< stringJoin(";", wellFormednessConstraint->BinderReferences)
+					<< RefinementUtils::stringJoin(";", wellFormednessConstraint->BinderReferences)
 					<< "]\n"
 					<< "  reft { __value : "
 					<< FixpointBaseTypeStrings[wellFormednessConstraint->Type]
