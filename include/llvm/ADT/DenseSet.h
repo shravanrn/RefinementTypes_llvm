@@ -103,7 +103,7 @@ public:
 
     Iterator(const typename MapTy::iterator &i) : I(i) {}
 
-    ValueT &operator*() { return I->getFirst(); }
+    ValueT &operator*() const { return I->getFirst(); }
     ValueT *operator->() { return &I->getFirst(); }
 
     Iterator& operator++() { ++I; return *this; }
