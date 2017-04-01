@@ -291,6 +291,7 @@ void initializeProfileSummaryInfoWrapperPassPass(PassRegistry &);
 void initializePromoteLegacyPassPass(PassRegistry &);
 void initializePruneEHPass(PassRegistry&);
 void initializeReassociateLegacyPassPass(PassRegistry&);
+void initializeRefinementFunctionAnalysisPassPass(PassRegistry&);
 void initializeRefinementCheckerPass(PassRegistry&);
 void initializeRegBankSelectPass(PassRegistry &);
 void initializeRegToMemPass(PassRegistry&);

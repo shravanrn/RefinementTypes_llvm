@@ -1,4 +1,5 @@
 #include "llvm/Transforms/LiquidTypes/RefinementChecker.h"
+#include "llvm/Transforms/LiquidTypes/RefinementFunctionAnalysisPass.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/IR/InstrTypes.h"
@@ -13,7 +14,7 @@ using namespace llvm;
 
 namespace liquid {
 
-	void runRefinementPass(const Function &F, const DominatorTree& dominatorTree, const llvm::LoopInfo& loopInfo)
+	void runRefinementPass(const Function &F, const DominatorTree& dominatorTree, const llvm::LoopInfo& loopInfo, const RefinementFunctionInfo& refinementInfo)
 	{
 
 	}
@@ -33,13 +34,15 @@ namespace {
 		{
 			auto& dominatorTree = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 			auto& loopInfo = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-			liquid::runRefinementPass(F, dominatorTree, loopInfo);
+			auto& refinementInfo = getAnalysis<RefinementFunctionAnalysisPass>().getRefinementInfo();
+			liquid::runRefinementPass(F, dominatorTree, loopInfo, refinementInfo);
 			return false;
 		}
 
 		void getAnalysisUsage(AnalysisUsage &AU) const override {
 			AU.addRequired<DominatorTreeWrapperPass>();
 			AU.addRequired<LoopInfoWrapperPass>();
+			AU.addRequired<RefinementFunctionAnalysisPass>();
 			AU.setPreservesAll();
 		}
 	};
@@ -49,13 +52,15 @@ char RefinementChecker::ID = 0;
 INITIALIZE_PASS_BEGIN(RefinementChecker, "refinement-checker", "Check refinement type annotations", false, false)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(RefinementFunctionAnalysisPass)
 INITIALIZE_PASS_END(RefinementChecker, "refinement-checker", "Check refinement type annotations", false, false)
 
 PreservedAnalyses RefinementCheckerPass::run(Function &F, FunctionAnalysisManager &AM)
 {
 	auto& dominatorTree = AM.getResult<DominatorTreeAnalysis>(F);
 	auto& loopInfo = AM.getResult<LoopAnalysis>(F);
-	liquid::runRefinementPass(F, dominatorTree, loopInfo);
+	auto& refinementInfo = AM.getResult<RefinementFunctionAnalysis>(F);
+	liquid::runRefinementPass(F, dominatorTree, loopInfo, refinementInfo);
 	return PreservedAnalyses::all();
 }
 
