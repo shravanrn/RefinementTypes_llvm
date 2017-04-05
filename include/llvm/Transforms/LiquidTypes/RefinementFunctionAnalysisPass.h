@@ -3,11 +3,15 @@
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/LiquidTypes/RefinementMetadata.h"
+
+using namespace liquid;
 
 namespace llvm {
 
 	class RefinementFunctionInfo {
 	public:
+		RefinementMetadata FnRefinementMetadata;
 	};
 
 	class RefinementFunctionAnalysisPass : public FunctionPass {
@@ -24,12 +28,6 @@ namespace llvm {
 
 		/// \brief Calculate the natural loop information for a given function.
 		bool runOnFunction(Function &F) override;
-
-		//void verifyAnalysis() const override;
-
-		//void releaseMemory() override { RI.releaseMemory(); }
-
-		void print(raw_ostream &O, const Module *M = nullptr) const override;
 
 		void getAnalysisUsage(AnalysisUsage &AU) const override { AU.setPreservesAll(); }
 	};

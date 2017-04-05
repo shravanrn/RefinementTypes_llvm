@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 
 namespace liquid {
 
@@ -40,6 +41,14 @@ namespace liquid {
 			result.insert(result.end(), vectorA.begin(), vectorA.end());
 			result.insert(result.end(), vectorB.begin(), vectorB.end());
 			return result;
+		}
+
+		template <typename T1, typename T2>
+		static bool containsKey(std::map<T1, T2> m, T1 key)
+		{
+			auto it = m.find(key);
+			bool found = (it != m.end());
+			return found;
 		}
 	};
 }
