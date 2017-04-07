@@ -4,15 +4,11 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/LiquidTypes/RefinementMetadata.h"
+#include "llvm/Transforms/LiquidTypes/RefinementFunctionInfo.h"
 
 using namespace liquid;
 
 namespace llvm {
-
-	class RefinementFunctionInfo {
-	public:
-		RefinementMetadata FnRefinementMetadata;
-	};
 
 	class RefinementFunctionAnalysisPass : public FunctionPass {
 		RefinementFunctionInfo RI;

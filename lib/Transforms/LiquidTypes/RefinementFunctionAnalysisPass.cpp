@@ -1,7 +1,9 @@
 #include "llvm/Transforms/LiquidTypes/RefinementFunctionAnalysisPass.h"
 #include "llvm/Transforms/LiquidTypes/RefinementMetadata.h"
+#include "llvm/Transforms/LiquidTypes/RefinementMetadataParser.h"
 #include "llvm/Transforms/LiquidTypes/ResultType.h"
 #include "llvm/Pass.h"
+#include "llvm/Transforms/LiquidTypes/RefinementConstraintGenerator.h"
 
 using namespace liquid;
 
@@ -18,12 +20,26 @@ namespace llvm {
 				return;
 			}
 
-			ResultType getRefData = RefinementMetadata::Extract(F, r.FnRefinementMetadata);
-			
-			if (!getRefData.Succeeded)
 			{
-				report_fatal_error(getRefData.ErrorMsg);
+				ResultType getRefData = RefinementMetadata::Extract(F, r.FnRefinementMetadata);
+
+				if (!getRefData.Succeeded)
+				{
+					report_fatal_error(getRefData.ErrorMsg);
+				}
 			}
+
+			{
+				ResultType getRefData = RefinementMetadataParser::ParseMetadata(r.FnRefinementMetadata, r.ParsedFnRefinementMetadata);
+
+				if (!getRefData.Succeeded)
+				{
+					report_fatal_error(getRefData.ErrorMsg);
+				}
+			}
+
+			RefinementConstraintGenerator constraintGenerator;
+			constraintGenerator.BuildConstraintsFromSignature(r.ParsedFnRefinementMetadata);
 		}
 	}
 

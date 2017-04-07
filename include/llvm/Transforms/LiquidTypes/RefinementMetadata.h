@@ -1,5 +1,5 @@
-#ifndef LLVM_TRANSFORMS_UTILS_METADATAEXTRACTOR_H
-#define LLVM_TRANSFORMS_UTILS_METADATAEXTRACTOR_H
+#ifndef LLVM_TRANSFORMS_UTILS_METADATA_H
+#define LLVM_TRANSFORMS_UTILS_METADATA_H
 
 #include <string>
 #include <vector>
@@ -20,6 +20,8 @@ namespace liquid {
 		llvm::Type* LLVMType;
 		std::string Assume;
 		std::string Verify;
+
+		RefinementMetadataForVariable& operator=(const RefinementMetadataForVariable& other);
 	};
 
 	class RefinementMetadata {
@@ -27,6 +29,8 @@ namespace liquid {
 		std::vector<std::string> Qualifiers;
 		std::vector<RefinementMetadataForVariable> Parameters;
 		RefinementMetadataForVariable Return;
+
+		RefinementMetadata& operator=(const RefinementMetadata& other);
 
 		static ResultType Extract(Function& F, RefinementMetadata& ret);
 	};

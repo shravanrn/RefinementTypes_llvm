@@ -196,3 +196,33 @@ ResultType RefinementMetadata::Extract(Function& F, RefinementMetadata& ret)
 
 	return ResultType::Success();
 }
+
+
+RefinementMetadata& RefinementMetadata::operator=(const RefinementMetadata& other) {
+
+	for (auto const& original : other.Qualifiers)
+	{
+		auto copy = original;
+		Qualifiers.push_back(copy);
+	}
+
+	for (auto const& original : other.Parameters)
+	{
+		auto copy = original;
+		Parameters.push_back(copy);
+	}
+
+	Return = other.Return;
+	return *this;
+}
+
+RefinementMetadataForVariable& RefinementMetadataForVariable::operator=(const RefinementMetadataForVariable& other)
+{
+	OriginalName = other.OriginalName;
+	LLVMName = other.LLVMName;
+	OriginalType = other.OriginalType;
+	LLVMType = other.LLVMType;
+	Assume = other.Assume;
+	Verify = other.Verify;
+	return *this;
+}
