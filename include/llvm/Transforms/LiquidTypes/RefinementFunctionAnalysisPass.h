@@ -25,7 +25,7 @@ namespace llvm {
 		/// \brief Calculate the natural loop information for a given function.
 		bool runOnFunction(Function &F) override;
 
-		void getAnalysisUsage(AnalysisUsage &AU) const override { AU.setPreservesAll(); }
+		void getAnalysisUsage(AnalysisUsage &AU) const override;
 	};
 
 	/// A pass which computes refinement constraints for a function
