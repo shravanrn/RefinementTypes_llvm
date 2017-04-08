@@ -15,7 +15,7 @@ namespace llvm {
 
 		void runRefinementAnalysis(Function &F, const DominatorTree& dominatorTree, const llvm::LoopInfo& loopInfo, RefinementFunctionInfo& r)
 		{
-			auto metadata = F.getMetadata("refine");
+			auto metadata = F.getMetadata("refinement");
 			//no refinement data
 			if (metadata == nullptr)
 			{

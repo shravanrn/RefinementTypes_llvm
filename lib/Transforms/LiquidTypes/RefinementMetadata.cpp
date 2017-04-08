@@ -102,7 +102,7 @@ namespace
 
 ResultType RefinementMetadata::Extract(Function& F, RefinementMetadata& ret)
 {
-	MDNode* metadata = F.getMetadata("refine");
+	MDNode* metadata = F.getMetadata("refinement");
 	//no refinement data
 	//if (metadata == nullptr)
 	//{
