@@ -18,21 +18,23 @@ namespace liquid {
 		return ret;
 	}
 
-	std::vector<std::string> RefinementConstraintGenerator::registerAndRetrieveIntegerQualifiers(const llvm::IntegerType& type)
+	ResultType RefinementConstraintGenerator::registerAndRetrieveIntegerQualifiers(const llvm::IntegerType& type, std::vector<std::string>& constraints)
 	{
 		std::string maxIntVal = getMaxValueForIntWidth(type.getIntegerBitWidth());
-		std::vector<std::string> constraints { "__value >= 0"s, "__value <= "s + maxIntVal };
+		constraints.push_back("__value >= 0"s);
+		constraints.push_back("__value <= "s + maxIntVal);
 
 		std::string constraintName = "Int" + std::to_string(type.getBitWidth()) + "Limit";
 
 		unsigned int i = 0;
 		for (auto& constraint : constraints)
 		{
-			constraintBuilder.AddQualifierIfNew(constraintName + std::to_string(i), { FixpointBaseType::INT }, { "__value" }, constraint);
+			auto addQualRes = constraintBuilder.AddQualifierIfNew(constraintName + std::to_string(i), { FixpointBaseType::INT }, { "__value" }, constraint);
+			if (!addQualRes.Succeeded) { return addQualRes; }
 			i++;
 		}
 
-		return constraints;
+		return ResultType::Success();
 	}
 
 	ResultType RefinementConstraintGenerator::addConstraintsForVariable(const RefinementMetadataForVariable& variable, const std::string& blockName, bool ignoreAssumes)
@@ -43,7 +45,8 @@ namespace liquid {
 		if (variable.LLVMType->isIntegerTy())
 		{
 			auto intType = dyn_cast<llvm::IntegerType>(variable.LLVMType);
-			variableConstraints = registerAndRetrieveIntegerQualifiers(*intType);
+			auto intQualRes = registerAndRetrieveIntegerQualifiers(*intType, variableConstraints);
+			if (!intQualRes.Succeeded) { return intQualRes; }
 			fixpointType = (intType->getIntegerBitWidth() == 1)? FixpointBaseType::BOOL : FixpointBaseType::INT;
 		}
 		else
@@ -67,7 +70,9 @@ namespace liquid {
 		}
 
 		variableEnv.AddVariable(blockName, variable.LLVMName);
-		constraintBuilder.CreateBinderWithQualifiers(variable.LLVMName, fixpointType, variableConstraints);
+		auto createBinderRes = constraintBuilder.CreateBinderWithQualifiers(variable.LLVMName, fixpointType, variableConstraints);
+		if (!createBinderRes.Succeeded) { return createBinderRes; }
+
 		return ResultType::Success();
 	}
 
@@ -97,11 +102,6 @@ namespace liquid {
 
 	ResultType RefinementConstraintGenerator::ToString(std::string& output)
 	{
-		bool success = constraintBuilder.ToStringOrFailure(output);
-		if (!success)
-		{
-			return ResultType::Error("Refinement types: constraint generator failed");
-		}
-		return ResultType::Success();
+		return constraintBuilder.ToStringOrFailure(output);
 	}
 }

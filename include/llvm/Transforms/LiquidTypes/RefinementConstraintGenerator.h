@@ -20,7 +20,7 @@ namespace liquid {
 
 		static std::string getMaxValueForIntWidth(int width);
 		std::vector<std::string> getNonDependentConstraints(std::string variableConstraint);
-		std::vector<std::string> registerAndRetrieveIntegerQualifiers(const llvm::IntegerType& type);
+		ResultType registerAndRetrieveIntegerQualifiers(const llvm::IntegerType& type, std::vector<std::string>& constraints);
 		ResultType addConstraintsForVariable(const RefinementMetadataForVariable& variable, const std::string& blockName, bool ignoreAssumes);
 	public:
 		RefinementConstraintGenerator(const Function &F, const DominatorTree& dominatorTree) : variableEnv(F, dominatorTree) {};

@@ -7,6 +7,8 @@
 #include <memory>
 #include <sstream>
 
+#include "llvm/Transforms/LiquidTypes/ResultType.h"
+
 namespace liquid {
 
 	enum FixpointBaseType {
@@ -71,10 +73,6 @@ namespace liquid {
 	class FixpointConstraintBuilder {
 	private:
 
-		bool failed = false;
-		std::string failureReason;
-		void setFailure(std::string reason);
-
 		std::vector<std::unique_ptr<WellFormednessConstraint>> wellFormednessConstraints;
 
 		std::map<std::string, Qualifier*> qualifierNameMapping;
@@ -97,12 +95,12 @@ namespace liquid {
 		//}
 		std::map<std::string, Binder*> binderInformationNameMapping;
 		std::vector<std::unique_ptr<Binder>> binderInformation;
-		std::vector<unsigned int> getEnvironmentBinderIds(const std::map<std::string, Binder*>& source, const std::vector<std::string>& names);
-		std::vector<unsigned int> getEnvironmentBinderIds(const std::map<std::string, std::unique_ptr<Binder>>& source, const std::vector<std::string>& names);
+		ResultType getEnvironmentBinderIds(const std::map<std::string, Binder*>& source, const std::vector<std::string>& names, std::vector<unsigned int>& environmentBinderReferences);
+		ResultType getEnvironmentBinderIds(const std::map<std::string, std::unique_ptr<Binder>>& source, const std::vector<std::string>& names, std::vector<unsigned int>& environmentBinderReferences);
 
 		std::map<std::string, std::unique_ptr<Binder>> futureBindersMapping;
-		bool isFutureBinderTypeValidIfExists(std::string& name, FixpointBaseType type, std::string& failureString);
-		void validateNoUninstantiatedFutureBinders();
+		ResultType isFutureBinderTypeValidIfExists(std::string& name, FixpointBaseType type);
+		ResultType validateNoUninstantiatedFutureBinders();
 
 		unsigned int freshConstraintId = 0;
 		unsigned int getFreshConstraintId();
@@ -114,16 +112,16 @@ namespace liquid {
 
 	public:
 		unsigned int GetFreshNameSuffix();
-		void AddQualifierIfNew(std::string name, std::vector<FixpointBaseType> paramTypes, std::vector<std::string> paramNames, std::string qualifierString);
+		ResultType AddQualifierIfNew(std::string name, std::vector<FixpointBaseType> paramTypes, std::vector<std::string> paramNames, std::string qualifierString);
 		bool DoesBinderExist(std::string name);
-		void CreateBinder(std::string name, FixpointBaseType type, std::vector<std::string> environmentBinders, std::vector<std::string> binderInformation);
-		void CreateBinderWithQualifiers(std::string name, FixpointBaseType type, std::vector<std::string> binderQualifiers);
+		ResultType CreateBinder(std::string name, FixpointBaseType type, std::vector<std::string> environmentBinders, std::vector<std::string> binderInformation);
+		ResultType CreateBinderWithQualifiers(std::string name, FixpointBaseType type, std::vector<std::string> binderQualifiers);
 		//Create a binder `name` while checking that this binder is created normally by a subsequent call to CreateBinder or CreateBinderWithQualifiers
-		void CreateFutureBinder(std::string name, FixpointBaseType type);
-		void AddBinderInformation(std::string name, std::string binderName, std::vector<std::string> binderQualifiers);
-		void AddConstraintForAssignment(std::string constraintName, std::string targetName, std::string assignedExpression, std::vector<std::string> environmentBinders, std::vector<std::string> futureBinders, std::vector<std::string> binderInformation);
+		ResultType CreateFutureBinder(std::string name, FixpointBaseType type);
+		ResultType AddBinderInformation(std::string name, std::string binderName, std::vector<std::string> binderQualifiers);
+		ResultType AddConstraintForAssignment(std::string constraintName, std::string targetName, std::string assignedExpression, std::vector<std::string> environmentBinders, std::vector<std::string> futureBinders, std::vector<std::string> binderInformation);
 
-		bool ToStringOrFailure(std::string& output);
+		ResultType ToStringOrFailure(std::string& output);
 	};
 }
 

@@ -3,10 +3,11 @@
 
 #include <string>
 #include <vector>
-#include "llvm/Pass.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/IR/Function.h"
 #include "llvm/Transforms/LiquidTypes/ResultType.h"
+#include "llvm/Transforms/LiquidTypes/RefinementMetadata_Raw.h"
 
 using namespace llvm;
 
@@ -33,10 +34,7 @@ namespace liquid {
 
 		RefinementMetadata& operator=(const RefinementMetadata& other);
 
-		static ResultType Extract(Function& F, RefinementMetadata& ret);
-	private:
-		static ResultType IncrementPointerAndGetString(const MDOperand* &operand, const MDOperand* operandEnd, std::string& str);
-		static ResultType ParseRefinement(RefinementMetadata& refinementData, const MDOperand* operand, const MDOperand* operandEnd);
+		static ResultType ParseMetadata(RefinementMetadata_Raw& in, RefinementMetadata& out);
 	};
 }
 

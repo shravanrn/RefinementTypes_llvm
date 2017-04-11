@@ -2,8 +2,9 @@
 #define LLVM_TRANSFORMS_UTILS_LIQUID_RESULTTYPE_H
 
 #include <string>
+#include "llvm/Transforms/LiquidTypes/RefinementMacroUtils.h"
 
-class ResultType
+class NODISCARD ResultType
 {
 private:
 	ResultType(bool succeeded, std::string errorMsg) : Succeeded(succeeded), ErrorMsg(errorMsg) {}

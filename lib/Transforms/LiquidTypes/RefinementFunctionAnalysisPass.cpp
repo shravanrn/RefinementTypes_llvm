@@ -1,9 +1,5 @@
 #include "llvm/Transforms/LiquidTypes/RefinementFunctionAnalysisPass.h"
-#include "llvm/Transforms/LiquidTypes/RefinementMetadata.h"
-#include "llvm/Transforms/LiquidTypes/RefinementMetadataParser.h"
 #include "llvm/Transforms/LiquidTypes/ResultType.h"
-#include "llvm/Transforms/LiquidTypes/RefinementConstraintGenerator.h"
-#include "llvm/Pass.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/LoopInfo.h"
 
@@ -25,7 +21,7 @@ namespace llvm {
 			r.RefinementDataFound = true;
 
 			{
-				ResultType getRefData = RefinementMetadata::Extract(F, r.FnRefinementMetadata);
+				ResultType getRefData = RefinementMetadata_Raw::Extract(F, r.FnRefinementMetadata_Raw);
 
 				if (!getRefData.Succeeded)
 				{
@@ -34,7 +30,7 @@ namespace llvm {
 			}
 
 			{
-				ResultType getRefData = RefinementMetadataParser::ParseMetadata(r.FnRefinementMetadata, r.ParsedFnRefinementMetadata);
+				ResultType getRefData = RefinementMetadata::ParseMetadata(r.FnRefinementMetadata_Raw, r.ParsedFnRefinementMetadata);
 
 				if (!getRefData.Succeeded)
 				{

@@ -4,15 +4,6 @@
 #include <sstream>
 namespace liquid {
 
-	void FixpointConstraintBuilder::setFailure(std::string reason)
-	{
-		if (!failed)
-		{
-			failed = true;
-			failureReason = reason;
-		}
-	}
-
 	unsigned int FixpointConstraintBuilder::getFreshBinderId()
 	{
 		auto copy = freshBinderId;
@@ -41,16 +32,14 @@ namespace liquid {
 		return copy;
 	}
 
-	std::vector<unsigned int> FixpointConstraintBuilder::getEnvironmentBinderIds(const std::map<std::string, Binder*>& source, const std::vector<std::string>& names)
+	ResultType FixpointConstraintBuilder::getEnvironmentBinderIds(const std::map<std::string, Binder*>& source, const std::vector<std::string>& names, std::vector<unsigned int>& environmentBinderReferences)
 	{
-		std::vector<unsigned int> environmentBinderReferences;
-
 		for (auto& name : names)
 		{
 			auto targetBinderTuple = source.find(name);
 			if (targetBinderTuple == source.end())
 			{
-				setFailure("Could not find binder with name : " + name);
+				return ResultType::Error("Could not find binder with name : " + name);
 			}
 			else
 			{
@@ -58,19 +47,17 @@ namespace liquid {
 			}
 		}
 
-		return environmentBinderReferences;
+		return ResultType::Success();
 	}
 
-	std::vector<unsigned int> FixpointConstraintBuilder::getEnvironmentBinderIds(const std::map<std::string, std::unique_ptr<Binder>>& source, const std::vector<std::string>& names)
+	ResultType FixpointConstraintBuilder::getEnvironmentBinderIds(const std::map<std::string, std::unique_ptr<Binder>>& source, const std::vector<std::string>& names, std::vector<unsigned int>& environmentBinderReferences)
 	{
-		std::vector<unsigned int> environmentBinderReferences;
-
 		for (auto& name : names)
 		{
 			auto targetBinderTuple = source.find(name);
 			if (targetBinderTuple == source.end())
 			{
-				setFailure("Could not find binder with name : " + name);
+				return ResultType::Error("Could not find binder with name : " + name);
 			}
 			else
 			{
@@ -78,10 +65,10 @@ namespace liquid {
 			}
 		}
 
-		return environmentBinderReferences;
+		return ResultType::Success();
 	}
 
-	bool FixpointConstraintBuilder::isFutureBinderTypeValidIfExists(std::string& name, FixpointBaseType type, std::string& failureString)
+	ResultType FixpointConstraintBuilder::isFutureBinderTypeValidIfExists(std::string& name, FixpointBaseType type)
 	{
 		auto futureBinderFound = futureBindersMapping.find(name);
 		if (futureBinderFound != futureBindersMapping.end())
@@ -89,19 +76,17 @@ namespace liquid {
 			auto& binder = futureBinderFound->second;
 			if (binder->Type != type)
 			{
-				setFailure("Duplicate future binder calls of "
+				return ResultType::Error("Duplicate future binder calls of "
 					+ name
 					+ " with different types: "
 					+ FixpointBaseTypeStrings[binder->Type]
 					+ ", "
 					+ FixpointBaseTypeStrings[type]
 				);
-
-				return false;
 			}
 		}
 
-		return true;
+		return ResultType::Success();
 	}
 
 	bool FixpointConstraintBuilder::DoesBinderExist(std::string name)
@@ -111,12 +96,11 @@ namespace liquid {
 		return found;
 	}
 
-	void FixpointConstraintBuilder::AddQualifierIfNew(std::string name, std::vector<FixpointBaseType> paramTypes, std::vector<std::string> paramNames, std::string qualifierString)
+	ResultType FixpointConstraintBuilder::AddQualifierIfNew(std::string name, std::vector<FixpointBaseType> paramTypes, std::vector<std::string> paramNames, std::string qualifierString)
 	{
 		if (paramNames.size() != paramTypes.size())
 		{
-			setFailure("Qualifier " + name + " does not have equal number of param names and types");
-			return;
+			return ResultType::Error("Qualifier " + name + " does not have equal number of param names and types");
 		}
 
 		auto qualifierObj = std::make_unique<Qualifier>(name, paramTypes, paramNames, qualifierString);
@@ -128,53 +112,54 @@ namespace liquid {
 		if (std::find_if(qualifiers.begin(), qualifiers.end(), findCondition) != qualifiers.end())
 		{
 			//an equivalent qualifier has already been added
-			return;
+			return ResultType::Success();
 		}
 
 		if (qualifierNameMapping.find(name) != qualifierNameMapping.end())
 		{
-			setFailure("Multiple qualifiers with name " + name);
-			return;
+			return ResultType::Error("Multiple qualifiers with name " + name);
 		}
 
 		qualifierNameMapping[qualifierObj->Name] = qualifierObj.get();
 		qualifiers.push_back(std::move(qualifierObj));
+
+		return ResultType::Success();
 	}
 
-	void FixpointConstraintBuilder::CreateBinder(std::string name, FixpointBaseType type, std::vector<std::string> environmentBinders, std::vector<std::string> binderInformation)
+	ResultType FixpointConstraintBuilder::CreateBinder(std::string name, FixpointBaseType type, std::vector<std::string> environmentBinders, std::vector<std::string> binderInformation)
 	{
 		auto binderFound = binderNameMapping.find(name);
 		if (binderFound != binderNameMapping.end())
 		{
-			setFailure("Multiple binders with name " + name);
-			return;
+			return ResultType::Error("Multiple binders with name " + name);
 		}
 
 		//remove any future binders that were expected with this name
 		unsigned int binderId;
-		std::string failureReason;
+		auto futureBinderTypeRes = isFutureBinderTypeValidIfExists(name, type);
 
-		if (!isFutureBinderTypeValidIfExists(name, type, failureReason))
+		if (!futureBinderTypeRes.Succeeded)
 		{
-			setFailure(failureReason);
-			return;
+			return futureBinderTypeRes;
+		}
+
+		auto futureBinderFound = futureBindersMapping.find(name);
+		if (futureBinderFound != futureBindersMapping.end())
+		{
+			binderId = futureBinderFound->second->Id;
+			futureBindersMapping.erase(name);
 		}
 		else
 		{
-			auto futureBinderFound = futureBindersMapping.find(name);
-			if (futureBinderFound != futureBindersMapping.end())
-			{
-				binderId = futureBinderFound->second->Id;
-				futureBindersMapping.erase(name);
-			}
-			else
-			{
-				binderId = getFreshBinderId();
-			}
+			binderId = getFreshBinderId();
 		}
 
-		auto environmentBinderIds = getEnvironmentBinderIds(binderNameMapping, environmentBinders);
-		auto environmentBinderInfoIds = getEnvironmentBinderIds(binderInformationNameMapping, binderInformation);
+		std::vector<unsigned int> environmentBinderIds, environmentBinderInfoIds;
+		auto binderRes = getEnvironmentBinderIds(binderNameMapping, environmentBinders, environmentBinderIds);
+		if (!binderRes.Succeeded) { return binderRes; }
+		auto binderInfoRes = getEnvironmentBinderIds(binderInformationNameMapping, binderInformation, environmentBinderInfoIds);
+		if (!binderInfoRes.Succeeded) { return binderInfoRes; }
+
 		auto allBinderIds = RefinementUtils::vectorAppend(environmentBinderIds, environmentBinderInfoIds);
 
 		auto refineId = getFreshRefinementId();
@@ -190,37 +175,35 @@ namespace liquid {
 		auto binder = std::make_unique<Binder>(binderId, name, type, binderQualifiers);
 		binderNameMapping[name] = binder.get();
 		binders.push_back(std::move(binder));
+
+		return ResultType::Success();
 	}
 
-	void FixpointConstraintBuilder::CreateBinderWithQualifiers(std::string name, FixpointBaseType type, std::vector<std::string> binderQualifiers)
+	ResultType FixpointConstraintBuilder::CreateBinderWithQualifiers(std::string name, FixpointBaseType type, std::vector<std::string> binderQualifiers)
 	{
 		if (binderNameMapping.find(name) != binderNameMapping.end())
 		{
-			setFailure("Multiple binders with name " + name);
-			return;
+			return ResultType::Error("Multiple binders with name " + name);
 		}
 
 		//remove any future binders that were expected with this name
 		unsigned int binderId;
-		std::string failureReason;
+		auto futureBinderTypeRes = isFutureBinderTypeValidIfExists(name, type);
 
-		if (!isFutureBinderTypeValidIfExists(name, type, failureReason))
+		if (!futureBinderTypeRes.Succeeded)
 		{
-			setFailure(failureReason);
-			return;
+			return futureBinderTypeRes;
+		}
+
+		auto futureBinderFound = futureBindersMapping.find(name);
+		if (futureBinderFound != futureBindersMapping.end())
+		{
+			binderId = futureBinderFound->second->Id;
+			futureBindersMapping.erase(name);
 		}
 		else
 		{
-			auto futureBinderFound = futureBindersMapping.find(name);
-			if (futureBinderFound != futureBindersMapping.end())
-			{
-				binderId = futureBinderFound->second->Id;
-				futureBindersMapping.erase(name);
-			}
-			else
-			{
-				binderId = getFreshBinderId();
-			}
+			binderId = getFreshBinderId();
 		}
 
 		unsigned int i = 0;
@@ -234,38 +217,38 @@ namespace liquid {
 		auto binder = std::make_unique<Binder>(binderId, name, type, binderQualifiers);
 		binderNameMapping[name] = binder.get();
 		binders.push_back(std::move(binder));
+
+		return ResultType::Success();
 	}
 
-	void FixpointConstraintBuilder::CreateFutureBinder(std::string name, FixpointBaseType type)
+	ResultType FixpointConstraintBuilder::CreateFutureBinder(std::string name, FixpointBaseType type)
 	{
-		std::string failureString;
-		if (!isFutureBinderTypeValidIfExists(name, type, failureString))
+		auto futureBinderTypeRes = isFutureBinderTypeValidIfExists(name, type);
+
+		if (!futureBinderTypeRes.Succeeded)
 		{
-			setFailure(failureString);
+			return futureBinderTypeRes;
 		}
-		else
-		{
-			auto binderId = getFreshBinderId();
-			std::vector<std::string> qualifiers;
-			auto newBinder = std::make_unique<Binder>(binderId, name, type, qualifiers);
-			futureBindersMapping[name] = std::move(newBinder);
-		}
+
+		auto binderId = getFreshBinderId();
+		std::vector<std::string> qualifiers;
+		auto newBinder = std::make_unique<Binder>(binderId, name, type, qualifiers);
+		futureBindersMapping[name] = std::move(newBinder);
+
+		return ResultType::Success();
 	}
 
-
-	void FixpointConstraintBuilder::AddBinderInformation(std::string name, std::string binderName, std::vector<std::string> binderQualifiers)
+	ResultType FixpointConstraintBuilder::AddBinderInformation(std::string name, std::string binderName, std::vector<std::string> binderQualifiers)
 	{
 		auto binderFound = binderNameMapping.find(binderName);
 		if (binderFound == binderNameMapping.end())
 		{
-			setFailure("Cannot finder binder with name " + binderName);
-			return;
+			return ResultType::Error("Cannot finder binder with name " + binderName);
 		}
 
 		if (binderInformationNameMapping.find(name) != binderInformationNameMapping.end())
 		{
-			setFailure("Multiple binder infomation records with name " + name);
-			return;
+			return ResultType::Error("Multiple binder infomation records with name " + name);
 		}
 
 		auto binderInfoId = getFreshBinderId();
@@ -282,17 +265,18 @@ namespace liquid {
 		auto binderInfo = std::make_unique<Binder>(binderInfoId, binderName, type, binderQualifiers);
 		binderInformationNameMapping[name] = binderInfo.get();
 		binderInformation.push_back(std::move(binderInfo));
+
+		return ResultType::Success();
 	}
 
-	void FixpointConstraintBuilder::AddConstraintForAssignment(std::string constraintName, std::string targetName, std::string assignedExpression, std::vector<std::string> environmentBinders, std::vector<std::string> futureBinders, std::vector<std::string> binderInformation)
+	ResultType FixpointConstraintBuilder::AddConstraintForAssignment(std::string constraintName, std::string targetName, std::string assignedExpression, std::vector<std::string> environmentBinders, std::vector<std::string> futureBinders, std::vector<std::string> binderInformation)
 	{
 		auto constraintId = getFreshConstraintId();
 
 		auto targetBinderTuple = binderNameMapping.find(targetName);
 		if (targetBinderTuple == binderNameMapping.end())
 		{
-			setFailure("Target binder " + targetName + "not found");
-			return;
+			return ResultType::Error("Target binder " + targetName + "not found");
 		}
 
 		auto targetBinder = targetBinderTuple->second;
@@ -300,9 +284,15 @@ namespace liquid {
 		std::vector<std::string> qualifiers;
 		qualifiers.push_back(assignedExpression);
 
-		auto environmentBinderIds = getEnvironmentBinderIds(binderNameMapping, environmentBinders);
-		auto environmentBinderInfoIds = getEnvironmentBinderIds(binderInformationNameMapping, binderInformation);
-		auto futureBindersIds = getEnvironmentBinderIds(futureBindersMapping, futureBinders);
+		std::vector<unsigned int> environmentBinderIds, environmentBinderInfoIds;
+		auto binderRes = getEnvironmentBinderIds(binderNameMapping, environmentBinders, environmentBinderIds);
+		if (!binderRes.Succeeded) { return binderRes; }
+		auto binderInfoRes = getEnvironmentBinderIds(binderInformationNameMapping, binderInformation, environmentBinderInfoIds);
+		if (!binderInfoRes.Succeeded) { return binderInfoRes; }
+
+		std::vector<unsigned int> futureBindersIds;
+		auto futBinderIdsRes = getEnvironmentBinderIds(futureBindersMapping, futureBinders, futureBindersIds);
+		if (!futBinderIdsRes.Succeeded) { return futBinderIdsRes; }
 
 		auto tmp = RefinementUtils::vectorAppend(environmentBinderIds, environmentBinderInfoIds);
 		auto allBinderIds = RefinementUtils::vectorAppend(tmp, futureBindersIds);
@@ -310,9 +300,11 @@ namespace liquid {
 		auto constraint = std::make_unique<Constraint>(constraintId, constraintName, targetBinder->Type, qualifiers, targetBinder->Qualifiers, allBinderIds);
 		constraintNameMapping[constraintName] = constraint.get();
 		constraints.push_back(std::move(constraint));
+
+		return ResultType::Success();
 	}
 
-	void FixpointConstraintBuilder::validateNoUninstantiatedFutureBinders()
+	ResultType FixpointConstraintBuilder::validateNoUninstantiatedFutureBinders()
 	{
 		if (futureBindersMapping.size() > 0)
 		{
@@ -322,104 +314,104 @@ namespace liquid {
 				missingBinderList += futureBinder.first + " ";
 			}
 
-			setFailure("Missing future binder instantiations : " + missingBinderList);
+			return ResultType::Error("Missing future binder instantiations : " + missingBinderList);
 		}
+
+		return ResultType::Success();
 	}
 
-	bool FixpointConstraintBuilder::ToStringOrFailure(std::string& output)
+	ResultType FixpointConstraintBuilder::ToStringOrFailure(std::string& output)
 	{
-		validateNoUninstantiatedFutureBinders();
+		auto futBindersRes = validateNoUninstantiatedFutureBinders();
 
-		if (failed)
+		if (!futBindersRes.Succeeded)
 		{
-			output = failureReason;
-		}
-		else
-		{
-			std::stringstream outputBuff;
-			for (auto& qualifier : qualifiers)
-			{
-				//rename __value to v as fixpoint chokes on variables with this format in qualifiers
-				auto modifiedQualifierString = std::regex_replace(qualifier->QualifierString, std::regex("\\_\\_value"), "v");
-
-				outputBuff << "qualif Q"
-					<< qualifier->Name
-					<< "(";
-
-				auto size = qualifier->ParamNames.size();
-				for (size_t i = 0u; i < size; i++)
-				{
-					if (i != 0) { outputBuff << ", "; }
-					outputBuff << std::regex_replace(qualifier->ParamNames[i], std::regex("\\_\\_value"), "v")
-						<< ":" << FixpointBaseTypeStrings[qualifier->ParamTypes[i]];
-				}
-
-				outputBuff << "): ("
-					<< modifiedQualifierString
-					<< ")\n";
-			}
-
-			outputBuff << "\n";
-
-			for (auto& binderSourceIndex : { 0,1 })
-			{
-				auto binderSource = &binders;
-				if (binderSourceIndex == 1) { binderSource = &binderInformation; }
-
-				for (auto& binder : *binderSource)
-				{
-					outputBuff << "bind "
-						<< binder->Id
-						<< " "
-						<< binder->Name
-						<< " : { __value : "
-						<< FixpointBaseTypeStrings[binder->Type]
-						<< " | "
-						<< RefinementUtils::stringJoin(" && ", binder->Qualifiers)
-						<< " }\n";
-				}
-			}
-
-			outputBuff << "\n";
-
-			for (auto& constraint : constraints)
-			{
-				outputBuff << "constraint:\n"
-					<< "  env ["
-					<< RefinementUtils::stringJoin(";", constraint->BinderReferences)
-					<< "]\n"
-					<< "  lhs { __value : "
-					<< FixpointBaseTypeStrings[constraint->Type]
-					<< " | "
-					<< RefinementUtils::stringJoin(" && ", constraint->Qualifiers)
-					<< " }\n"
-					<< "  rhs { __value : "
-					<< FixpointBaseTypeStrings[constraint->Type]
-					<< " | "
-					<< RefinementUtils::stringJoin(" && ", constraint->TargetQualifiers)
-					<< " }\n"
-					<< "  id "
-					<< constraint->Id
-					<< " tag []\n\n";
-			}
-
-			for (auto& wellFormednessConstraint : wellFormednessConstraints)
-			{
-				outputBuff << "wf:\n"
-					<< "  env ["
-					<< RefinementUtils::stringJoin(";", wellFormednessConstraint->BinderReferences)
-					<< "]\n"
-					<< "  reft { __value : "
-					<< FixpointBaseTypeStrings[wellFormednessConstraint->Type]
-					<< " | $k"
-					<< wellFormednessConstraint->Id
-					<< " }\n\n";
-			}
-
-			output = outputBuff.str();
+			return futBindersRes;
 		}
 
-		return !failed;
+		std::stringstream outputBuff;
+		for (auto& qualifier : qualifiers)
+		{
+			//rename __value to v as fixpoint chokes on variables with this format in qualifiers
+			auto modifiedQualifierString = std::regex_replace(qualifier->QualifierString, std::regex("\\_\\_value"), "v");
+
+			outputBuff << "qualif Q"
+				<< qualifier->Name
+				<< "(";
+
+			auto size = qualifier->ParamNames.size();
+			for (size_t i = 0u; i < size; i++)
+			{
+				if (i != 0) { outputBuff << ", "; }
+				outputBuff << std::regex_replace(qualifier->ParamNames[i], std::regex("\\_\\_value"), "v")
+					<< ":" << FixpointBaseTypeStrings[qualifier->ParamTypes[i]];
+			}
+
+			outputBuff << "): ("
+				<< modifiedQualifierString
+				<< ")\n";
+		}
+
+		outputBuff << "\n";
+
+		for (auto& binderSourceIndex : { 0,1 })
+		{
+			auto binderSource = &binders;
+			if (binderSourceIndex == 1) { binderSource = &binderInformation; }
+
+			for (auto& binder : *binderSource)
+			{
+				outputBuff << "bind "
+					<< binder->Id
+					<< " "
+					<< binder->Name
+					<< " : { __value : "
+					<< FixpointBaseTypeStrings[binder->Type]
+					<< " | "
+					<< RefinementUtils::stringJoin(" && ", binder->Qualifiers)
+					<< " }\n";
+			}
+		}
+
+		outputBuff << "\n";
+
+		for (auto& constraint : constraints)
+		{
+			outputBuff << "constraint:\n"
+				<< "  env ["
+				<< RefinementUtils::stringJoin(";", constraint->BinderReferences)
+				<< "]\n"
+				<< "  lhs { __value : "
+				<< FixpointBaseTypeStrings[constraint->Type]
+				<< " | "
+				<< RefinementUtils::stringJoin(" && ", constraint->Qualifiers)
+				<< " }\n"
+				<< "  rhs { __value : "
+				<< FixpointBaseTypeStrings[constraint->Type]
+				<< " | "
+				<< RefinementUtils::stringJoin(" && ", constraint->TargetQualifiers)
+				<< " }\n"
+				<< "  id "
+				<< constraint->Id
+				<< " tag []\n\n";
+		}
+
+		for (auto& wellFormednessConstraint : wellFormednessConstraints)
+		{
+			outputBuff << "wf:\n"
+				<< "  env ["
+				<< RefinementUtils::stringJoin(";", wellFormednessConstraint->BinderReferences)
+				<< "]\n"
+				<< "  reft { __value : "
+				<< FixpointBaseTypeStrings[wellFormednessConstraint->Type]
+				<< " | $k"
+				<< wellFormednessConstraint->Id
+				<< " }\n\n";
+		}
+
+		output = outputBuff.str();
+
+		return ResultType::Success();
 	}
 
 }

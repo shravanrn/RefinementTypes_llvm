@@ -1,7 +1,6 @@
 #include "llvm/Transforms/LiquidTypes/RefinementChecker.h"
 #include "llvm/Transforms/LiquidTypes/RefinementFunctionAnalysisPass.h"
 #include "llvm/Transforms/LiquidTypes/ResultType.h"
-#include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
