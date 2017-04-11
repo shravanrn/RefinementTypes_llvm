@@ -1,4 +1,3 @@
-#include "llvm/IR/Metadata.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Transforms/LiquidTypes/RefinementMetadata.h"
 #include "llvm/Transforms/LiquidTypes/RefinementUtils.h"
@@ -10,94 +9,102 @@
 using namespace std::string_literals;
 using namespace liquid;
 using namespace llvm;
-namespace
+
+ResultType RefinementMetadata::IncrementPointerAndGetString(const MDOperand* &operand, const MDOperand* operandEnd, std::string& str)
 {
-	class RefinementMetadataKVP
+	if (operand != operandEnd)
 	{
-	public:
-		std::string Key;
-		std::string Value;
+		operand++;
+		MDString* metadataType_Str = dyn_cast<MDString>(operand->get());
 
-		static ResultType Get(Metadata* metadataType, Metadata* metadataDetail, RefinementMetadataKVP& out)
+		if (!metadataType_Str)
 		{
-			MDString* metadataType_Str = dyn_cast<MDString>(metadataType);
-
-			if (!metadataType_Str)
-			{
-				return ResultType::Error("Refinement types: unexpected type of metadata type node");
-			}
-
-			MDString* metadataDetail_Str = dyn_cast<MDString>(metadataDetail);
-
-			if (!metadataDetail_Str)
-			{
-				return ResultType::Error("Refinement types: unexpected type of metadata detail node");
-			}
-
-			out.Key = metadataType_Str->getString().str();
-			out.Value = metadataDetail_Str->getString().str();
-
-			return ResultType::Success();
+			return ResultType::Error("Refinement types: unexpected type of metadata type node");
 		}
 
-		static ResultType SplitByColon(std::string signature, RefinementMetadataKVP& out)
-		{
-			std::size_t position = signature.find(":"s);
-			if (position == std::string::npos)
-			{
-				return ResultType::Error("Could not find the location of the `:` in metadata string - " + signature);
-			}
-
-			out.Key = signature.substr(0, position);
-			out.Value = signature.substr(position + 1, signature.length() - (position + 1));
-
-			return ResultType::Success();
-		}
-	};
-
-	ResultType getMetadataKVPs(MDNode* metadata, std::vector<RefinementMetadataKVP>& metadataKVPs)
-	{
-		auto operandCount = metadata->getNumOperands();
-
-		std::vector<Metadata*> refinementMetadataNodes;
-		for (auto operand = metadata->op_begin(); operand != metadata->op_end(); operand++)
-		{
-			refinementMetadataNodes.push_back(operand->get());
-		}
-
-		for (unsigned int i = 0; i < operandCount; i += 2)
-		{
-			RefinementMetadataKVP operandKvp;
-			ResultType getKvpResult = RefinementMetadataKVP::Get(refinementMetadataNodes[i], refinementMetadataNodes[i + 1], operandKvp);
-
-			if (!getKvpResult.Succeeded)
-			{
-				return ResultType::Error(getKvpResult.ErrorMsg + " Operand num " + std::to_string(i));
-			}
-
-			metadataKVPs.push_back(operandKvp);
-		}
-
+		str = metadataType_Str->getString().str();
 		return ResultType::Success();
 	}
 
-	void extractLLVMDetails(Function& F, RefinementMetadata& ret)
+	return ResultType::Error("Refinement types: Expected more parameters");
+}
+
+ResultType RefinementMetadata::ParseRefinement(RefinementMetadata& refinementData, const MDOperand* operand, const MDOperand* operandEnd)
+{
+	MDString* metadataType_Str = dyn_cast<MDString>(operand->get());
+
+	if (!metadataType_Str)
 	{
-		ret.Return.LLVMName = "return";
-		ret.Return.LLVMType = F.getReturnType();
+		return ResultType::Error("Refinement types: unexpected type of metadata type node");
+	}
 
-		std::vector<llvm::Argument*> args;
-		for each(auto& arg in F.args())
+	std::string metadataType = metadataType_Str->getString().str();
+	if (metadataType == "qualifier")
+	{
+		std::string qualifier;
+		auto qualResult = IncrementPointerAndGetString(operand, operandEnd, qualifier);
+		if (!qualResult.Succeeded) { return qualResult; }
+
+		refinementData.Qualifiers.push_back(qualifier);
+	}
+	else if (metadataType == "signature_return" || metadataType == "signature_parameter")
+	{
+		std::string originalType, originalName;
+		auto originalTypeResult = IncrementPointerAndGetString(operand, operandEnd, originalType);
+		if (!originalTypeResult.Succeeded) { return originalTypeResult; }
+
+		auto originalNameResult = IncrementPointerAndGetString(operand, operandEnd, originalName);
+		if (!originalNameResult.Succeeded) { return originalNameResult; }
+
+		if (metadataType == "signature_return")
 		{
-			args.push_back(&arg);
+			refinementData.Return.OriginalType = originalType;
+			refinementData.Return.OriginalName = originalName;
 		}
-
-		for (unsigned int i = 0; i < args.size(); i++)
+		else
 		{
-			ret.Parameters[i].LLVMName = args.at(i)->getName().str();
-			ret.Parameters[i].LLVMType = args.at(i)->getType();
+			RefinementMetadataForVariable paramRefinement;
+			paramRefinement.OriginalType = originalType;
+			paramRefinement.OriginalName = originalName;
+			refinementData.Parameters.push_back(paramRefinement);
 		}
 	}
+	else if (metadataType == "assume" || metadataType == "verify")
+	{
+		RefinementMetadataForVariable* latest = &(refinementData.Return);
+		if (refinementData.Parameters.size() > 0)
+		{
+			latest = &(refinementData.Parameters[refinementData.Parameters.size() - 1]);
+		}
+
+		std::string assumeVerifyString;
+		auto assumeVerifyResult = IncrementPointerAndGetString(operand, operandEnd, assumeVerifyString);
+		if (!assumeVerifyResult.Succeeded) { return assumeVerifyResult; }
+
+		if (metadataType == "assume")
+		{
+			latest->Assume = assumeVerifyString;
+		}
+		else
+		{
+			latest->Verify = assumeVerifyString;
+		}
+	}
+	else
+	{
+		return ResultType::Error("Refinement types: Unexpected metadata type " + metadataType);
+	}
+
+	std::string endString;
+	auto endResult = IncrementPointerAndGetString(operand, operandEnd, endString);
+	if (!endResult.Succeeded) { return endResult; }
+
+	if (endString != "end")
+	{
+		return ResultType::Error("Refinement types: Expected 'end' string. Got " + endString);
+	}
+
+	return ResultType::Success();
 }
 
 ResultType RefinementMetadata::Extract(Function& F, RefinementMetadata& ret)
@@ -116,87 +123,17 @@ ResultType RefinementMetadata::Extract(Function& F, RefinementMetadata& ret)
 		return ResultType::Error("Refinement types: unexpected metadata node count");
 	}
 
-	std::vector<RefinementMetadataKVP> refinementMetadataNodes;
-	auto getMetadataResult = getMetadataKVPs(metadata, refinementMetadataNodes);
-
-	if (!getMetadataResult.Succeeded)
+	for (auto operand = metadata->op_begin(); operand != metadata->op_end(); operand++)
 	{
-		return ResultType::Error(getMetadataResult.ErrorMsg);
-	}
-
-	std::map<std::string, RefinementMetadataForVariable*> metadataMapping;
-
-	for (auto const& metadataKVP : refinementMetadataNodes)
-	{
-		if (metadataKVP.Key == "signature_return" || metadataKVP.Key == "signature_parameter")
+		auto parseResult = ParseRefinement(ret, operand, metadata->op_end());
+		if (!parseResult.Succeeded)
 		{
-			RefinementMetadataKVP kvp;
-			auto splitResult = RefinementMetadataKVP::SplitByColon(metadataKVP.Value, kvp);
-
-			RefinementMetadataForVariable* target = &(ret.Return);
-			if (metadataKVP.Key == "signature_parameter")
-			{
-				RefinementMetadataForVariable parameter;
-				ret.Parameters.push_back(parameter);
-				target = &(ret.Parameters[ret.Parameters.size() - 1]);
-			}
-
-			if (!splitResult.Succeeded)
-			{
-				return ResultType::Error("Refinement types: error parsing refinement - " + splitResult.ErrorMsg);
-			}
-
-			target->OriginalName = kvp.Key;
-			target->OriginalType = kvp.Value;
-			metadataMapping[target->OriginalName] = target;
-		}
-	}
-
-	extractLLVMDetails(F, ret);
-
-	for (auto const& metadataKVP : refinementMetadataNodes)
-	{
-		if (metadataKVP.Key == "signature_return" || metadataKVP.Key == "signature_parameter") {}
-		else if (metadataKVP.Key == "qualifier")
-		{
-			ret.Qualifiers.push_back(metadataKVP.Value);
-		}
-		else if (metadataKVP.Key == "assume" || metadataKVP.Key == "verify")
-		{
-			RefinementMetadataKVP kvp;
-			auto splitResult = RefinementMetadataKVP::SplitByColon(metadataKVP.Value, kvp);
-
-			if (!splitResult.Succeeded)
-			{
-				return ResultType::Error("Refinement types: could not find parameter name in - " + metadataKVP.Value);
-			}
-
-			if (RefinementUtils::containsKey(metadataMapping, kvp.Key))
-			{
-				RefinementMetadataForVariable* curr = metadataMapping[kvp.Key];
-				if (metadataKVP.Key == "assume")
-				{
-					curr->Assume = kvp.Value;
-				}
-				else
-				{
-					curr->Verify = kvp.Value;
-				}
-			}
-			else
-			{
-				return ResultType::Error("Refinement types: could not find parameter with name - " + kvp.Key);
-			}
-		}
-		else
-		{
-			return ResultType::Error("Refinement types: unknown metadata type - " + metadataKVP.Key);
+			return parseResult;
 		}
 	}
 
 	return ResultType::Success();
 }
-
 
 RefinementMetadata& RefinementMetadata::operator=(const RefinementMetadata& other) {
 

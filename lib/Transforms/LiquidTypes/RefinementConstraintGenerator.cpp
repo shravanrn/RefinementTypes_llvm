@@ -84,8 +84,8 @@ namespace liquid {
 			}
 		}
 
-		//assumes of the return type can be ignored as there is nothing to check and we can't use this information 
-		//to help verification of this function
+		//assumes of the return type can be ignored here (it will be used at call sites of this functions) 
+		//as there is nothing to check and we can't use this information to help verification of this function
 		ResultType addConstraintRet = addConstraintsForVariable(refinementData.Return, "entry", true /* ignoreAssumes */);
 		if (!addConstraintRet.Succeeded)
 		{
