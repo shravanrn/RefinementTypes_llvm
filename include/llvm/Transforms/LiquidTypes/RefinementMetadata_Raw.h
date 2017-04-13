@@ -36,7 +36,7 @@ namespace liquid {
 		static ResultType Extract(Function& F, RefinementMetadata_Raw& ret);
 	private:
 		static ResultType IncrementPointerAndGetString(const MDOperand* &operand, const MDOperand* operandEnd, std::string& str);
-		static ResultType ParseRefinement(RefinementMetadata_Raw& refinementData, const MDOperand* operand, const MDOperand* operandEnd);
+		static ResultType ParseRefinement(RefinementMetadata_Raw& refinementData, const MDOperand* &operand, const MDOperand* operandEnd);
 	};
 }
 

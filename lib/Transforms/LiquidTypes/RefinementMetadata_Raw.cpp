@@ -24,7 +24,7 @@ ResultType RefinementMetadata_Raw::IncrementPointerAndGetString(const MDOperand*
 	return ResultType::Error("Refinement types: Expected more parameters");
 }
 
-ResultType RefinementMetadata_Raw::ParseRefinement(RefinementMetadata_Raw& refinementData, const MDOperand* operand, const MDOperand* operandEnd)
+ResultType RefinementMetadata_Raw::ParseRefinement(RefinementMetadata_Raw& refinementData, const MDOperand* &operand, const MDOperand* operandEnd)
 {
 	MDString* metadataType_Str = dyn_cast<MDString>(operand->get());
 
@@ -125,6 +125,17 @@ ResultType RefinementMetadata_Raw::Extract(Function& F, RefinementMetadata_Raw& 
 		{
 			return parseResult;
 		}
+	}
+
+	ret.Return.LLVMName = "return";
+	ret.Return.LLVMType = F.getReturnType();
+
+	unsigned int i = 0;
+	for (auto& arg : F.args())
+	{
+		ret.Parameters[i].LLVMName = arg.getName().str();
+		ret.Parameters[i].LLVMType = arg.getType();
+		i++;
 	}
 
 	return ResultType::Success();
