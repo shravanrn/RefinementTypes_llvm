@@ -22,24 +22,25 @@ namespace llvm {
 
 			{
 				ResultType getRefData = RefinementMetadata_Raw::Extract(F, r.FnRefinementMetadata_Raw);
-
-				if (!getRefData.Succeeded)
-				{
-					report_fatal_error(getRefData.ErrorMsg);
-				}
+				if (!getRefData.Succeeded) { report_fatal_error(getRefData.ErrorMsg); }
 			}
 
 			{
 				ResultType getRefData = RefinementMetadata::ParseMetadata(r.FnRefinementMetadata_Raw, r.ParsedFnRefinementMetadata);
-
-				if (!getRefData.Succeeded)
-				{
-					report_fatal_error(getRefData.ErrorMsg);
-				}
+				if (!getRefData.Succeeded) { report_fatal_error(getRefData.ErrorMsg); }
 			}
 
 			r.ConstraintGenerator = std::make_unique<RefinementConstraintGenerator>(F, dominatorTree);
-			r.ConstraintGenerator->BuildConstraintsFromSignature(r.ParsedFnRefinementMetadata);
+
+			{
+				ResultType constraintRes = r.ConstraintGenerator->BuildConstraintsFromSignature(r.ParsedFnRefinementMetadata);
+				if (!constraintRes.Succeeded) { report_fatal_error(constraintRes.ErrorMsg); }
+			}
+
+			{
+				ResultType constraintRes = r.ConstraintGenerator->BuildConstraintsFromInstructions(r.ParsedFnRefinementMetadata);
+				if (!constraintRes.Succeeded) { report_fatal_error(constraintRes.ErrorMsg); }
+			}
 		}
 	}
 

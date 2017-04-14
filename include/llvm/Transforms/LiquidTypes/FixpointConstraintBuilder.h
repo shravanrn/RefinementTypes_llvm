@@ -11,9 +11,7 @@
 
 namespace liquid {
 
-	enum FixpointBaseType {
-		INT, BOOL
-	};
+	enum FixpointBaseType { INT, BOOL };
 	static const char* FixpointBaseTypeStrings[] = { "int", "bool" };
 
 	class Qualifier {

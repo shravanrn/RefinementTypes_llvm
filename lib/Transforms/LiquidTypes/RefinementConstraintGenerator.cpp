@@ -42,12 +42,14 @@ namespace liquid {
 		std::vector<std::string> variableConstraints;
 		FixpointBaseType fixpointType;
 
+		auto convertResult = fixpointTypeConvertor.GetFixpointType(*(variable.LLVMType), fixpointType);
+		if (!convertResult.Succeeded) { return convertResult; }
+
 		if (variable.LLVMType->isIntegerTy())
 		{
 			auto intType = dyn_cast<llvm::IntegerType>(variable.LLVMType);
 			auto intQualRes = registerAndRetrieveIntegerQualifiers(*intType, variableConstraints);
 			if (!intQualRes.Succeeded) { return intQualRes; }
-			fixpointType = (intType->getIntegerBitWidth() == 1)? FixpointBaseType::BOOL : FixpointBaseType::INT;
 		}
 		else
 		{
@@ -95,6 +97,33 @@ namespace liquid {
 		if (!addConstraintRet.Succeeded)
 		{
 			return addConstraintRet;
+		}
+
+		return ResultType::Success();
+	}
+
+	ResultType RefinementConstraintGenerator::BuildConstraintsFromInstructions(const RefinementMetadata& refinementData)
+	{
+		for (auto& block : Func)
+		{
+			auto blockName = block.getName().str();
+			for (auto& instr : block)
+			{
+				if (auto binaryOpInst = dyn_cast<BinaryOperator>(&instr))
+				{
+					ResultType res = instructionConstraintBuilder.CaptureBinaryOperatorConstraint(blockName, *binaryOpInst);
+					if (!res.Succeeded) { return res; }
+				}
+				else if (auto returnInst = dyn_cast<ReturnInst>(&instr))
+				{
+					ResultType res = instructionConstraintBuilder.CaptureReturnInstructionConstraint(blockName, *returnInst);
+					if (!res.Succeeded) { return res; }
+				}
+				else
+				{
+					return ResultType::Error("Unknown instruction type "s + instr.getOpcodeName());
+				}
+			}
 		}
 
 		return ResultType::Success();
