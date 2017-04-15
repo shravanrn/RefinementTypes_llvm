@@ -14,6 +14,10 @@ namespace llvm {
 	};
 
 	Pass *createRefinementCheckerPass();
+
+	struct RefinementCheckerParameters {
+		static std::string FixpointExecutablePath;
+	};
 }
 
 #endif

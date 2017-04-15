@@ -2,6 +2,7 @@ add_llvm_library(LLVMTransformLiquidTypes
   RefinementChecker.cpp
   FixpointConstraintBuilder.cpp
   FixpointTypeConvertor.cpp
+  FixpointManager.cpp
   RefinementUtils.cpp
   RefinementFunctionAnalysisPass.cpp
   RefinementMetadata_Raw.cpp
