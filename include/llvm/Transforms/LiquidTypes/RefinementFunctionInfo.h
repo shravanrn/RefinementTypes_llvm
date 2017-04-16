@@ -15,6 +15,8 @@ namespace liquid {
 		RefinementMetadata_Raw FnRefinementMetadata_Raw;
 		RefinementMetadata ParsedFnRefinementMetadata;
 		std::unique_ptr<RefinementConstraintGenerator> ConstraintGenerator;
+
+		RefinementFunctionInfo() = default;
 	};
 
 }

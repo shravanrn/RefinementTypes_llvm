@@ -64,7 +64,7 @@ namespace {
 		bool runOnFunction(Function &F) override
 		{
 			auto& refinementInfo = getAnalysis<RefinementFunctionAnalysisPass>().getRefinementInfo();
-			liquid::runRefinementPass(F, refinementInfo);
+			liquid::runRefinementPass(F, refinementInfo[F.getName().str()]);
 			return false;
 		}
 

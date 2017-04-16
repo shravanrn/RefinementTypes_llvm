@@ -53,7 +53,10 @@ namespace llvm {
 	bool RefinementFunctionAnalysisPass::runOnFunction(Function &F) {
 		auto& dominatorTree = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 		auto& loopInfo = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-		runRefinementAnalysis(F, dominatorTree, loopInfo, RI);
+		std::string key = F.getName().str();
+		RI[key] = RefinementFunctionInfo();
+		runRefinementAnalysis(F, dominatorTree, loopInfo, RI[key]);
+
 		return false;
 	}
 
