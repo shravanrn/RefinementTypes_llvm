@@ -8,6 +8,7 @@
 #include "llvm/Transforms/LiquidTypes/FixpointConstraintBuilder.h"
 #include "llvm/Transforms/LiquidTypes/FixpointTypeConvertor.h"
 #include "llvm/Transforms/LiquidTypes/VariablesEnvironment.h"
+#include "llvm/Transforms/LiquidTypes/RefinementMetadata.h"
 
 using namespace llvm;
 
@@ -37,6 +38,10 @@ namespace liquid {
 		ResultType CaptureReturnInstructionConstraint(const std::string& blockName, const ReturnInst& returnInst);
 		ResultType CaptureComparisonInstructionConstraint(const std::string& blockName, const CmpInst& cmpInst);
 		ResultType CaptureZeroExtendInstructionConstraint(const std::string& blockName, const ZExtInst& zextInst);
+		ResultType CaptureBranchInstructionConstraint(const std::string& blockName, const BranchInst& brInst);
+		ResultType CapturePhiInstructionConstraint(const std::string& blockName, const PHINode& phiInst);
+		ResultType CaptureSelectInstructionConstraint(const std::string& blockName, const SelectInst& selectInst);
+		ResultType CaptureCallInstructionConstraint(const std::string& blockName, const CallInst& callInst, const RefinementMetadata& refinementData);
 	};
 }
 

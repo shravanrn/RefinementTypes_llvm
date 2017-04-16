@@ -129,6 +129,26 @@ namespace liquid {
 					ResultType res = instructionConstraintBuilder.CaptureZeroExtendInstructionConstraint(blockName, *zextInst);
 					if (!res.Succeeded) { return res; }
 				}
+				else if (auto branchInst = dyn_cast<BranchInst>(&instr))
+				{
+					ResultType res = instructionConstraintBuilder.CaptureBranchInstructionConstraint(blockName, *branchInst);
+					if (!res.Succeeded) { return res; }
+				}
+				else if (auto phiInst = dyn_cast<PHINode>(&instr))
+				{
+					ResultType res = instructionConstraintBuilder.CapturePhiInstructionConstraint(blockName, *phiInst);
+					if (!res.Succeeded) { return res; }
+				}
+				else if (auto selectInst = dyn_cast<SelectInst>(&instr))
+				{
+					ResultType res = instructionConstraintBuilder.CaptureSelectInstructionConstraint(blockName, *selectInst);
+					if (!res.Succeeded) { return res; }
+				}
+				else if (auto callInst = dyn_cast<CallInst>(&instr))
+				{
+					ResultType res = instructionConstraintBuilder.CaptureCallInstructionConstraint(blockName, *callInst, refinementData);
+					if (!res.Succeeded) { return res; }
+				}
 				else
 				{
 					return ResultType::Error("Unknown instruction type "s + instr.getOpcodeName());

@@ -357,4 +357,234 @@ namespace liquid {
 		return ResultType::Success();
 	}
 
+	ResultType RefinementInstructionConstraintGenerator::CaptureBranchInstructionConstraint(const std::string& blockName, const BranchInst& brInst)
+	{
+		if (brInst.isUnconditional())
+		{
+			//don't need to do anything here
+			return ResultType::Success();
+		}
+
+		auto conditionVarValue = brInst.getCondition();
+		std::string conditionVar;
+		{
+			auto conditionVarRes = getBinderName(*conditionVarValue, conditionVar);
+			if (!conditionVarRes.Succeeded) { return conditionVarRes; }
+		}
+
+		auto conditionSuccessBlock = brInst.getSuccessor(0)->getName().str();
+		auto conditionFailBlock = brInst.getSuccessor(1)->getName().str();
+
+		{
+			auto infoNameTrue = conditionVar + "_" + blockName + "_" + "branch_true";
+			variableEnv.AddVariableInfo(conditionSuccessBlock, infoNameTrue);
+			std::vector<std::string> binderInfoQualifiers;
+			binderInfoQualifiers.push_back("__value");
+			ResultType binderInfoRes = constraintBuilder.AddBinderInformation(infoNameTrue, conditionVar, binderInfoQualifiers);
+			if (!binderInfoRes.Succeeded) { return binderInfoRes; }
+		}
+		{
+			auto infoNameFalse = conditionVar + "_" + blockName + "_" + "branch_false";
+			variableEnv.AddVariableInfo(conditionFailBlock, infoNameFalse);
+			std::vector<std::string> binderInfoQualifiers;
+			binderInfoQualifiers.push_back("~__value");
+			ResultType binderInfoRes = constraintBuilder.AddBinderInformation(infoNameFalse, conditionVar, binderInfoQualifiers);
+			if (!binderInfoRes.Succeeded) { return binderInfoRes; }
+		}
+
+		return ResultType::Success();
+	}
+
+	ResultType RefinementInstructionConstraintGenerator::CapturePhiInstructionConstraint(const std::string& blockName, const PHINode& phiInst)
+	{
+		auto operands = phiInst.operands();
+		auto phiTargetVarName = phiInst.getName().str();
+		auto targetLLVMType = phiInst.getType();
+
+		FixpointBaseType targetFixpointType;
+		{
+			auto convertResult = fixpointTypeConvertor.GetFixpointType(*targetLLVMType, targetFixpointType);
+			if (!convertResult.Succeeded) { return convertResult; }
+		}
+
+		{
+			auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
+			auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
+			auto createBinderRes = constraintBuilder.CreateBinder(phiTargetVarName, targetFixpointType, variablesInScope, variablesInfo);
+			if (!createBinderRes.Succeeded) { return createBinderRes; }
+		}
+
+		for (auto& operand : operands)
+		{
+			auto val = operand.get();
+			std::string variableName;
+			{
+				auto variableNameRes = getBinderName(*val, variableName);
+				if (!variableNameRes.Succeeded) { return variableNameRes; }
+			}
+
+			auto incomingBlock = phiInst.getIncomingBlock(operand);
+			auto incomingBlockName = incomingBlock->getName().str();
+			auto incomingVariablesInScope = variableEnv.GetVariablesInScope(incomingBlockName);
+			auto incomingVariablesInfo = variableEnv.GetVariablesInfo(incomingBlockName);
+
+			std::vector<std::string> futureVariables;
+
+			if (isLLVMRegister(*val))
+			{
+				if (std::find(incomingVariablesInScope.begin(), incomingVariablesInScope.end(), variableName) == incomingVariablesInScope.end())
+				{
+					//if this is a variable, which is not in scope, this may not have been created yet
+					//consider the following example
+					//
+					//entry:
+					//  br for.cond  
+					//for.cond
+					//  i.0 = phi 0  inc
+					//	...
+					//  br for.body
+					//for.body
+					//  inc = add ret.0  1  
+					//  br for.cond  
+					//  ...
+					//
+					//Here inc is used before its actual definition while reading top down
+					//we need to guard against this
+					auto futureBinderRes = constraintBuilder.CreateFutureBinder(variableName, targetFixpointType);
+					if (!futureBinderRes.Succeeded) { return futureBinderRes; }
+					futureVariables.push_back(variableName);
+				}
+			}
+
+			auto assignmentQualifier = "__value == " + variableName;
+
+			auto constraintName = blockName + "_phi_" + variableName;
+			auto addConstraintRes = constraintBuilder.AddConstraintForAssignment(constraintName, phiTargetVarName, assignmentQualifier, incomingVariablesInScope, futureVariables, incomingVariablesInfo);
+			if (!addConstraintRes.Succeeded) { return addConstraintRes; }
+		}
+
+		variableEnv.AddVariable(blockName, phiTargetVarName);
+
+		return ResultType::Success();
+	}
+
+	ResultType RefinementInstructionConstraintGenerator::CaptureSelectInstructionConstraint(const std::string& blockName, const SelectInst& selectInst)
+	{
+		auto selTargetVarName = selectInst.getName().str();
+		auto targetLLVMType = selectInst.getType();
+
+		FixpointBaseType targetFixpointType;
+		{
+			auto convertResult = fixpointTypeConvertor.GetFixpointType(*targetLLVMType, targetFixpointType);
+			if (!convertResult.Succeeded) { return convertResult; }
+		}
+
+		auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
+
+		{
+			auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
+			auto createBinderRes = constraintBuilder.CreateBinder(selTargetVarName, targetFixpointType, variablesInScope, variablesInfo);
+			if (!createBinderRes.Succeeded) { return createBinderRes; }
+		}
+
+		for (int i = 0; i < 2; i++)
+		{
+			auto operandVal = selectInst.getTrueValue();
+			auto binderInfoForThisOperand = "__value";
+
+			if (i == 1)
+			{
+				operandVal = selectInst.getFalseValue();
+				binderInfoForThisOperand = "~__value";
+			}
+
+			std::string variableName;
+			{
+				auto variableNameRes = getBinderName(*operandVal, variableName);
+				if (!variableNameRes.Succeeded) { return variableNameRes; }
+			}
+			auto assignmentQualifier = "__value == " + variableName;
+
+			auto incomingVariablesInfo = variableEnv.GetVariablesInfo(blockName);
+			incomingVariablesInfo.push_back(binderInfoForThisOperand);
+
+			auto constraintName = blockName + "_select_" + variableName;
+			auto addConstraintRes = constraintBuilder.AddConstraintForAssignment(constraintName, selTargetVarName, assignmentQualifier, variablesInScope, {} /* future binders needed only for phi nodes */, incomingVariablesInfo);
+			if (!addConstraintRes.Succeeded) { return addConstraintRes; }
+		}
+
+		variableEnv.AddVariable(blockName, selTargetVarName);
+
+		return ResultType::Success();
+	}
+
+	namespace {
+		std::vector<std::string> getNonDependentConstraints(std::string variableConstraint)
+		{
+			//TODO:
+			std::vector<std::string> ret{ variableConstraint };
+			return ret;
+		}
+	}
+
+	ResultType RefinementInstructionConstraintGenerator::CaptureCallInstructionConstraint(const std::string& blockName, const CallInst& callInst, const RefinementMetadata& refinementData)
+	{
+		auto currFnName = callInst.getParent()->getParent()->getName().str();
+		auto callFnName = callInst.getCalledFunction()->getName().str();
+
+		if (currFnName != callFnName)
+		{
+			return ResultType::Error("Refinement Types: External calls not supported");
+		}
+
+		auto opRegisterName = callInst.getName().str();
+		auto targetLLVMType = callInst.getCalledFunction()->getReturnType();
+		FixpointBaseType targetFixpointType;
+		{
+			auto convertResult = fixpointTypeConvertor.GetFixpointType(*targetLLVMType, targetFixpointType);
+			if (!convertResult.Succeeded) { return convertResult; }
+		}
+
+		std::vector<std::string> nonDependentConstraints;
+
+		{
+			std::vector<std::string> nonDependentConstraints1 = getNonDependentConstraints(refinementData.Return.Assume);
+			std::vector<std::string> nonDependentConstraints2 = getNonDependentConstraints(refinementData.Return.Verify);
+			nonDependentConstraints.insert(nonDependentConstraints.end(), nonDependentConstraints1.begin(), nonDependentConstraints1.end());
+			nonDependentConstraints.insert(nonDependentConstraints.end(), nonDependentConstraints2.begin(), nonDependentConstraints2.end());
+		}
+
+		auto createBinderRes = constraintBuilder.CreateBinderWithQualifiers(opRegisterName, targetFixpointType, nonDependentConstraints);
+		if (!createBinderRes.Succeeded) { return createBinderRes; }
+
+		//Add parameter constraints
+
+		for (unsigned int i = 0; i < refinementData.Parameters.size(); i++)
+		{
+			std::string constraintName = opRegisterName + "_recurse_param_"s + std::to_string(i);
+			std::string formalArgumentName = refinementData.Parameters[i].LLVMName;
+			auto actualArgument = callInst.getArgOperand(i);
+
+			std::string actualArgumentName;
+			{
+				auto actualArgumentRes = getBinderName(*actualArgument, actualArgumentName);
+				if (!actualArgumentRes.Succeeded) { return actualArgumentRes; }
+			}
+
+			std::string argumentAssignment = "__value == " + actualArgumentName;
+
+			auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
+			auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
+
+			auto addConstraintRes = constraintBuilder.AddConstraintForAssignment(constraintName, formalArgumentName, argumentAssignment, variablesInScope, {} /* future binders needed only for phi nodes */, variablesInfo);
+			if (!addConstraintRes.Succeeded) { return addConstraintRes; }
+		}
+
+		//TODO: Add dependent qualifiers
+
+		variableEnv.AddVariable(blockName, opRegisterName);
+
+		return ResultType::Success();
+	}
+
 }
