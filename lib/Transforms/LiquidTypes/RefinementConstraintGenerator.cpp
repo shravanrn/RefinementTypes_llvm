@@ -159,6 +159,21 @@ namespace liquid {
 		return ResultType::Success();
 	}
 
+	ResultType RefinementConstraintGenerator::CaptureLoopConstraints(const llvm::LoopInfo& loopInfo)
+	{
+		for (auto& block : Func)
+		{
+			auto currentLoopDepth = loopInfo.getLoopDepth(&block);
+			if (currentLoopDepth > 0)
+			{
+				ResultType addQualRes = constraintBuilder.AddQualifierIfNew("loopStepQualifier", { FixpointBaseType::INT, FixpointBaseType::INT, FixpointBaseType::INT }, { "v", "a", "b" }, "(v - a) mod b == 0");
+				if (!addQualRes.Succeeded) { return addQualRes; }
+			}
+		}
+
+		return ResultType::Success();
+	}
+
 	ResultType RefinementConstraintGenerator::ToString(std::string& output)
 	{
 		return constraintBuilder.ToStringOrFailure(output);

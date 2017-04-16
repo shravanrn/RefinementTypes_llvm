@@ -41,6 +41,11 @@ namespace llvm {
 				ResultType constraintRes = r.ConstraintGenerator->BuildConstraintsFromInstructions(r.ParsedFnRefinementMetadata);
 				if (!constraintRes.Succeeded) { report_fatal_error(constraintRes.ErrorMsg); }
 			}
+
+			{
+				ResultType constraintRes = r.ConstraintGenerator->CaptureLoopConstraints(loopInfo);
+				if (!constraintRes.Succeeded) { report_fatal_error(constraintRes.ErrorMsg); }
+			}
 		}
 	}
 

@@ -7,6 +7,7 @@
 #include "llvm/Transforms/LiquidTypes/ResultType.h"
 #include "llvm/Transforms/LiquidTypes/RefinementMetadata.h"
 #include "llvm/Transforms/LiquidTypes/RefinementInstructionConstraintGenerator.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include <string>
 #include <vector>
 
@@ -31,6 +32,7 @@ namespace liquid {
 		RefinementConstraintGenerator(const Function &F, const DominatorTree& dominatorTree) : Func(F), variableEnv(F, dominatorTree), instructionConstraintBuilder(constraintBuilder, fixpointTypeConvertor, variableEnv) {};
 		ResultType BuildConstraintsFromSignature(const RefinementMetadata& refinementData);
 		ResultType BuildConstraintsFromInstructions(const RefinementMetadata& refinementData);
+		ResultType CaptureLoopConstraints(const llvm::LoopInfo& loopInfo);
 		ResultType ToString(std::string& output);
 
 	};
