@@ -35,6 +35,8 @@ namespace liquid {
 		RefinementInstructionConstraintGenerator(FixpointConstraintBuilder& _constraintBuilder, FixpointTypeConvertor& _fixpointTypeConvertor, VariablesEnvironment& _variableEnv) : constraintBuilder(_constraintBuilder), fixpointTypeConvertor(_fixpointTypeConvertor), variableEnv(_variableEnv) {}
 		ResultType CaptureBinaryOperatorConstraint(const std::string& blockName, const BinaryOperator& binaryOpInst);
 		ResultType CaptureReturnInstructionConstraint(const std::string& blockName, const ReturnInst& returnInst);
+		ResultType CaptureComparisonInstructionConstraint(const std::string& blockName, const CmpInst& cmpInst);
+		ResultType CaptureZeroExtendInstructionConstraint(const std::string& blockName, const ZExtInst& zextInst);
 	};
 }
 

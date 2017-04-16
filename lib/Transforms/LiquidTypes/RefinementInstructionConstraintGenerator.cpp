@@ -208,4 +208,153 @@ namespace liquid {
 		return ResultType::Success();
 	}
 
+	ResultType RefinementInstructionConstraintGenerator::CaptureComparisonInstructionConstraint(const std::string& blockName, const CmpInst& cmpInst)
+	{
+		std::string operatorString = "";
+		std::string operatorDesc = "";
+		bool signedOp = false;
+
+		auto cmpOperator = cmpInst.getPredicate();
+
+		switch (cmpOperator)
+		{
+			case CmpInst::ICMP_SLT:
+				signedOp = true;
+			case CmpInst::ICMP_ULT:
+				operatorString = "<";
+				operatorDesc = "_cmplessthan";
+				break;
+			case CmpInst::ICMP_SGT:
+				signedOp = true;
+			case CmpInst::ICMP_UGT:
+				operatorString = ">";
+				operatorDesc = "_cmpgreaterthan";
+				break;
+			case CmpInst::ICMP_SLE:
+				signedOp = true;
+			case CmpInst::ICMP_ULE:
+				operatorString = "<=";
+				operatorDesc = "_cmplessthaneq";
+				break;
+			case CmpInst::ICMP_SGE:
+				signedOp = true;
+			case CmpInst::ICMP_UGE:
+				operatorString = ">=";
+				operatorDesc = "_cmpgreaterthaneq";
+				break;
+			case CmpInst::ICMP_EQ:
+				operatorString = "==";
+				operatorDesc = "_compareeq";
+				break;
+			case CmpInst::ICMP_NE:
+				operatorString = "!=";
+				operatorDesc = "_comparenoteq";
+				break;
+			default:
+				return ResultType::Error("Refinement Types: Unknown comparison type - " + cmpOperator);
+		}
+
+		std::string left, right;
+		{
+			auto leftRes = getBinderName(*(cmpInst.getOperand(0)), left);
+			if (!leftRes.Succeeded) { return leftRes; }
+
+			auto rightRes = getBinderName(*(cmpInst.getOperand(1)), right);
+			if (!rightRes.Succeeded) { return rightRes; }
+		}
+
+		auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
+		auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
+
+		auto opRegisterName = cmpInst.getName().str();
+		variableEnv.AddVariable(blockName, opRegisterName);
+		auto createBinderRes = constraintBuilder.CreateBinder(opRegisterName, liquid::FixpointBaseType::BOOL, variablesInScope, variablesInfo);
+		if (!createBinderRes.Succeeded) { return createBinderRes; }
+
+		auto intType = dyn_cast<IntegerType>(cmpInst.getOperand(0)->getType());
+		auto signedMaxIntVal = APInt::getSignedMaxValue(intType->getBitWidth());
+		std::string signedMaxIntValStr = signedMaxIntVal.toString(10 /* radix */, false /* unsigned */);
+
+		std::string constraintName = opRegisterName + operatorDesc;
+		std::string compareExpression;
+
+		if (signedOp)
+		{
+			//std::string signedMax, signedMaxIntValStr;
+			std::string leftWrap  = "("s + left  + " - 1 - "s + signedMaxIntValStr + ")"s;
+			std::string rightWrap = "("s + right + " - 1 - "s + signedMaxIntValStr + ")"s;
+
+			compareExpression =
+				"if ("s + left + " > "s + signedMaxIntValStr + " && " + right + " > "s + signedMaxIntValStr + ") then "s +
+				"__value <=> ("s + leftWrap + operatorString + rightWrap + " ) "s +
+
+				"elseif ("s + left + " > "s + signedMaxIntValStr + ") then "s +
+				"__value <=> ("s + leftWrap + operatorString + right + " ) "s +
+
+				"elseif ("s + right + " > "s + signedMaxIntValStr + ") then "s +
+				"__value <=> ("s + left + operatorString + rightWrap + " ) "s +
+
+				"else " +
+				"__value <=> ("s + left + operatorString + right + " )"s;
+		}
+		else
+		{
+			compareExpression = "__value <=> ("s + left + operatorString + right + " )"s;
+		}
+
+		auto addConstraintRes = constraintBuilder.AddConstraintForAssignment(constraintName, opRegisterName, compareExpression, variablesInScope, {} /* future binders needed only for phi nodes */, variablesInfo);
+		if (!addConstraintRes.Succeeded) { return addConstraintRes; }
+
+		return ResultType::Success();
+	}
+
+	ResultType RefinementInstructionConstraintGenerator::CaptureZeroExtendInstructionConstraint(const std::string& blockName, const ZExtInst& zextInst)
+	{
+		bool convertFromBooleanType = false;
+		auto leftOperand = zextInst.getOperand(0);
+		{
+			if (auto intType = dyn_cast<IntegerType>(leftOperand->getType()))
+			{
+				if (intType->getBitWidth() == 1) { convertFromBooleanType = true; }
+			}
+		}
+
+		std::string left;
+		{
+			auto leftRes = getBinderName(*leftOperand, left);
+			if (!leftRes.Succeeded) { return leftRes; }
+		}
+
+		FixpointBaseType fixpointType;
+		{
+			auto convertResult = fixpointTypeConvertor.GetFixpointType(*(zextInst.getType()), fixpointType);
+			if (!convertResult.Succeeded) { return convertResult; }
+		}
+
+		auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
+		auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
+		auto opRegisterName = zextInst.getName().str();
+		variableEnv.AddVariable(blockName, opRegisterName);
+
+		auto createBinderRes = constraintBuilder.CreateBinder(opRegisterName, fixpointType, variablesInScope, variablesInfo);
+		if (!createBinderRes.Succeeded) { return createBinderRes; }
+
+		std::string assignedExpression;
+		if (convertFromBooleanType)
+		{
+			assignedExpression ="if (" + left + ") then __value == 1 else __value == 0";
+		}
+		else
+		{
+			assignedExpression = "__value == " + left;
+		}
+
+		auto freshNameSuffix = constraintBuilder.GetFreshNameSuffix();
+		auto constraintName = "zext_" + std::to_string(freshNameSuffix);
+		auto addConstraintRes = constraintBuilder.AddConstraintForAssignment(constraintName, opRegisterName, assignedExpression, variablesInScope, {} /* future binders needed only for phi nodes */, variablesInfo);
+		if (!addConstraintRes.Succeeded) { return addConstraintRes; }
+
+		return ResultType::Success();
+	}
+
 }

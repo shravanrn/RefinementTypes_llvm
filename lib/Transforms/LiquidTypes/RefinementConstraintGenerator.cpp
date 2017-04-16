@@ -119,6 +119,16 @@ namespace liquid {
 					ResultType res = instructionConstraintBuilder.CaptureReturnInstructionConstraint(blockName, *returnInst);
 					if (!res.Succeeded) { return res; }
 				}
+				else if (auto cmpInst = dyn_cast<llvm::CmpInst>(&instr))
+				{
+					ResultType res = instructionConstraintBuilder.CaptureComparisonInstructionConstraint(blockName, *cmpInst);
+					if (!res.Succeeded) { return res; }
+				}
+				else if (auto zextInst = dyn_cast<llvm::ZExtInst>(&instr))
+				{
+					ResultType res = instructionConstraintBuilder.CaptureZeroExtendInstructionConstraint(blockName, *zextInst);
+					if (!res.Succeeded) { return res; }
+				}
 				else
 				{
 					return ResultType::Error("Unknown instruction type "s + instr.getOpcodeName());
