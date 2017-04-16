@@ -417,6 +417,10 @@ void PassManagerBuilder::populateModulePassManager(
       // Rename anon globals to be able to export them in the summary.
       MPM.add(createNameAnonGlobalPass());
 
+    // Ensure that we run the refinement checker pass at O0 optimization level as well
+    // We depend on the mem2reg pass, so we run that first
+    MPM.add(createPromoteMemoryToRegisterPass()); MPM.add(createRefinementCheckerPass());
+
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
     return;
   }
@@ -446,6 +450,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createIPSCCPPass());          // IP SCCP
     MPM.add(createGlobalOptimizerPass()); // Optimize out global vars
     // Promote any localized global vars.
+    // We depend on the mem2reg pass, so we run that first and then run the refinement checker 
     MPM.add(createPromoteMemoryToRegisterPass()); MPM.add(createRefinementCheckerPass());
 
     MPM.add(createDeadArgEliminationPass()); // Dead argument elimination
