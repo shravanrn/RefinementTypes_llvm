@@ -2,6 +2,7 @@
 #include "llvm/Transforms/LiquidTypes/ResultType.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Transforms/LiquidTypes/AnalysisRetriever.h"
 
 using namespace liquid;
 
@@ -9,7 +10,7 @@ namespace llvm {
 
 	namespace {
 
-		void runRefinementAnalysis(Function &F, const DominatorTree& dominatorTree, const llvm::LoopInfo& loopInfo, RefinementFunctionInfo& r)
+		void runRefinementAnalysis(Function &F, const DominatorTree& dominatorTree, const llvm::LoopInfo& loopInfo, const AnalysisRetriever& analysisRetriever, RefinementFunctionInfo& r)
 		{
 			auto metadata = F.getMetadata("refinement");
 			//no refinement data
@@ -38,7 +39,7 @@ namespace llvm {
 			}
 
 			{
-				ResultType constraintRes = r.ConstraintGenerator->BuildConstraintsFromInstructions(r.ParsedFnRefinementMetadata);
+				ResultType constraintRes = r.ConstraintGenerator->BuildConstraintsFromInstructions(r.ParsedFnRefinementMetadata, analysisRetriever);
 				if (!constraintRes.Succeeded) { report_fatal_error(constraintRes.ErrorMsg); }
 			}
 
@@ -60,7 +61,9 @@ namespace llvm {
 		auto& loopInfo = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 		std::string key = F.getName().str();
 		RI[key] = RefinementFunctionInfo();
-		runRefinementAnalysis(F, dominatorTree, loopInfo, RI[key]);
+
+		AnalysisRetriever analysisRetriever(&RI);
+		runRefinementAnalysis(F, dominatorTree, loopInfo, analysisRetriever, RI[key]);
 
 		return false;
 	}
@@ -77,7 +80,9 @@ namespace llvm {
 		RefinementFunctionInfo r;
 		auto& dominatorTree = AM.getResult<DominatorTreeAnalysis>(F);
 		auto& loopInfo = AM.getResult<LoopAnalysis>(F);
-		runRefinementAnalysis(F, dominatorTree, loopInfo, r);
+
+		AnalysisRetriever analysisRetriever(&AM, &F, &r);
+		runRefinementAnalysis(F, dominatorTree, loopInfo, analysisRetriever, r);
 
 		return r;
 	}

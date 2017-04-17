@@ -14,6 +14,8 @@ using namespace llvm;
 
 namespace liquid {
 	
+	class RefinementFunctionInfo;
+
 	class RefinementInstructionConstraintGenerator
 	{
 	private:
@@ -41,7 +43,7 @@ namespace liquid {
 		ResultType CaptureBranchInstructionConstraint(const std::string& blockName, const BranchInst& brInst);
 		ResultType CapturePhiInstructionConstraint(const std::string& blockName, const PHINode& phiInst);
 		ResultType CaptureSelectInstructionConstraint(const std::string& blockName, const SelectInst& selectInst);
-		ResultType CaptureCallInstructionConstraint(const std::string& blockName, const CallInst& callInst, const RefinementMetadata& refinementData);
+		ResultType CaptureCallInstructionConstraint(const std::string& blockName, const CallInst& callInst, const std::string& callVariablesPrefixUsed, const RefinementFunctionInfo* callRefFunctionInfo);
 	};
 }
 

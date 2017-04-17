@@ -15,6 +15,9 @@ using namespace llvm;
 
 namespace liquid {
 
+	class AnalysisRetriever;
+	class RefinementFunctionInfo;
+
 	class RefinementConstraintGenerator
 	{
 	private:
@@ -27,11 +30,14 @@ namespace liquid {
 		static std::string getMaxValueForIntWidth(int width);
 		std::vector<std::string> getNonDependentConstraints(std::string variableConstraint);
 		ResultType registerAndRetrieveIntegerQualifiers(const llvm::IntegerType& type, std::vector<std::string>& constraints);
-		ResultType addConstraintsForVariable(const RefinementMetadataForVariable& variable, const std::string& blockName, bool ignoreAssumes);
+		ResultType addConstraintsForVariable(const RefinementMetadataForVariable& variable, const std::string& prefix, const std::string& blockName, const bool ignoreAssumes);
+		ResultType buildConstraintsFromSignatureForBlock(const RefinementMetadata& refinementData, const std::string& prefix, const std::string& blockName, const bool ignoreParameterAssumes, const bool ignoreReturnAssumes);
+		ResultType generateCallSignatureVariables(const std::string& blockName, const CallInst& callInst, const AnalysisRetriever& analysisRetriever, std::string& prefixUsed, const RefinementFunctionInfo* &callFunctionInfo);
+
 	public:
-		RefinementConstraintGenerator(const Function &F, const DominatorTree& dominatorTree) : Func(F), variableEnv(F, dominatorTree), instructionConstraintBuilder(constraintBuilder, fixpointTypeConvertor, variableEnv) {};
+		RefinementConstraintGenerator(const Function &F, const DominatorTree& dominatorTree) : Func(F), variableEnv(F, dominatorTree), instructionConstraintBuilder(constraintBuilder, fixpointTypeConvertor, variableEnv) {}
 		ResultType BuildConstraintsFromSignature(const RefinementMetadata& refinementData);
-		ResultType BuildConstraintsFromInstructions(const RefinementMetadata& refinementData);
+		ResultType BuildConstraintsFromInstructions(const RefinementMetadata& refinementData, const AnalysisRetriever& analysisRetriever);
 		ResultType CaptureLoopConstraints(const llvm::LoopInfo& loopInfo);
 		ResultType ToString(std::string& output);
 

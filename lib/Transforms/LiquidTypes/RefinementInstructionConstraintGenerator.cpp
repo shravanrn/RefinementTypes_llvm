@@ -1,4 +1,6 @@
 #include "llvm/Transforms/LiquidTypes/RefinementInstructionConstraintGenerator.h"
+#include "llvm/Transforms/LiquidTypes/RefinementUtils.h"
+#include "llvm/Transforms/LiquidTypes/RefinementFunctionInfo.h"
 #include "llvm/IR/Constants.h"
 
 using namespace std::literals::string_literals;
@@ -522,67 +524,76 @@ namespace liquid {
 		std::vector<std::string> getNonDependentConstraints(std::string variableConstraint)
 		{
 			//TODO:
-			std::vector<std::string> ret{ variableConstraint };
+			std::vector<std::string> ret;
+			if (variableConstraint != "")
+			{
+				ret.push_back(variableConstraint);
+			}
+
 			return ret;
 		}
 	}
 
-	ResultType RefinementInstructionConstraintGenerator::CaptureCallInstructionConstraint(const std::string& blockName, const CallInst& callInst, const RefinementMetadata& refinementData)
+	//At the time this function is called, it is expected that variables exist representing the formal arguments and return of the callee
+	//For example, if the prefixString is "pre_", for a call to function
+	//int {assumeStr, verifyStr} bar(int{assumeStr, verifyStr} a);
+	//
+	//int y = bar(x);
+	//
+	//We expect the variables 
+	//pre_ret{assumeStr, verifyStr}, pre_a{verifyStr} to already be generated
+	//
+	//Thus all we have to do is create assignments from
+	//x to pre_a
+	//and pre_ret to y
+	ResultType RefinementInstructionConstraintGenerator::CaptureCallInstructionConstraint(const std::string& blockName, const CallInst& callInst, const std::string& callVariablesPrefixUsed, const RefinementFunctionInfo* callRefFunctionInfo)
 	{
-		auto currFnName = callInst.getParent()->getParent()->getName().str();
-		auto callFnName = callInst.getCalledFunction()->getName().str();
-
-		if (currFnName != callFnName)
-		{
-			return ResultType::Error("Refinement Types: External calls not supported");
-		}
-
-		auto opRegisterName = callInst.getName().str();
-		auto targetLLVMType = callInst.getCalledFunction()->getReturnType();
-		FixpointBaseType targetFixpointType;
-		{
-			auto convertResult = fixpointTypeConvertor.GetFixpointType(*targetLLVMType, targetFixpointType);
-			if (!convertResult.Succeeded) { return convertResult; }
-		}
-
-		std::vector<std::string> nonDependentConstraints;
-
-		{
-			std::vector<std::string> nonDependentConstraints1 = getNonDependentConstraints(refinementData.Return.Assume);
-			std::vector<std::string> nonDependentConstraints2 = getNonDependentConstraints(refinementData.Return.Verify);
-			nonDependentConstraints.insert(nonDependentConstraints.end(), nonDependentConstraints1.begin(), nonDependentConstraints1.end());
-			nonDependentConstraints.insert(nonDependentConstraints.end(), nonDependentConstraints2.begin(), nonDependentConstraints2.end());
-		}
-
-		auto createBinderRes = constraintBuilder.CreateBinderWithQualifiers(opRegisterName, targetFixpointType, nonDependentConstraints);
-		if (!createBinderRes.Succeeded) { return createBinderRes; }
+		auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
+		auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
 
 		//Add parameter constraints
-
-		for (unsigned int i = 0; i < refinementData.Parameters.size(); i++)
+		for (unsigned int i = 0, size = callRefFunctionInfo->ParsedFnRefinementMetadata.Parameters.size(); i < size; i++)
 		{
-			std::string constraintName = opRegisterName + "_recurse_param_"s + std::to_string(i);
-			std::string formalArgumentName = refinementData.Parameters[i].LLVMName;
-			auto actualArgument = callInst.getArgOperand(i);
+			auto formalParam = callRefFunctionInfo->ParsedFnRefinementMetadata.Parameters[i];
+			auto actualParam = callInst.getOperand(i);
+			auto formalRegisterName = formalParam.LLVMName;
+			auto actualRegisterName = actualParam->getName().str();
 
-			std::string actualArgumentName;
 			{
-				auto actualArgumentRes = getBinderName(*actualArgument, actualArgumentName);
-				if (!actualArgumentRes.Succeeded) { return actualArgumentRes; }
+				std::string constraintName = actualRegisterName + "_param_"s + formalRegisterName;
+				std::string variableTargetName = callVariablesPrefixUsed + formalRegisterName;
+				std::string argumentAssignment = "__value == " + actualRegisterName;
+				auto addConstraintRes = constraintBuilder.AddConstraintForAssignment(constraintName, variableTargetName, argumentAssignment, variablesInScope, {} /* future binders needed only for phi nodes */, variablesInfo);
+				if (!addConstraintRes.Succeeded) { return addConstraintRes; }
 			}
-
-			std::string argumentAssignment = "__value == " + actualArgumentName;
-
-			auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
-			auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
-
-			auto addConstraintRes = constraintBuilder.AddConstraintForAssignment(constraintName, formalArgumentName, argumentAssignment, variablesInScope, {} /* future binders needed only for phi nodes */, variablesInfo);
-			if (!addConstraintRes.Succeeded) { return addConstraintRes; }
 		}
 
-		//TODO: Add dependent qualifiers
+		//add return constraints
+		{
+			auto formalRegisterName = callInst.getName().str();
 
-		variableEnv.AddVariable(blockName, opRegisterName);
+			FixpointBaseType fixpointType;
+			{
+				auto llvmType = callRefFunctionInfo->ParsedFnRefinementMetadata.Return.LLVMType;
+				auto convertResult = fixpointTypeConvertor.GetFixpointType(*llvmType, fixpointType);
+				if (!convertResult.Succeeded) { return convertResult; }
+			}
+
+			{
+				auto createBinderRes = constraintBuilder.CreateBinder(formalRegisterName, fixpointType, variablesInScope, variablesInfo);
+				if (!createBinderRes.Succeeded) { return createBinderRes; }
+			}
+
+			{
+				std::string constraintName = formalRegisterName + "_param_"s + callRefFunctionInfo->ParsedFnRefinementMetadata.Return.LLVMName;
+				std::string variableTargetName = callVariablesPrefixUsed + callRefFunctionInfo->ParsedFnRefinementMetadata.Return.LLVMName;
+				std::string argumentAssignment = "__value == " + variableTargetName;
+				auto addConstraintRes = constraintBuilder.AddConstraintForAssignment(constraintName, formalRegisterName, argumentAssignment, variablesInScope, {} /* future binders needed only for phi nodes */, variablesInfo);
+				if (!addConstraintRes.Succeeded) { return addConstraintRes; }
+			}
+
+			variableEnv.AddVariable(blockName, formalRegisterName);
+		}
 
 		return ResultType::Success();
 	}

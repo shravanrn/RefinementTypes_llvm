@@ -1,5 +1,6 @@
 #include "llvm/Transforms/LiquidTypes/RefinementConstraintGenerator.h"
 #include "llvm/Transforms/LiquidTypes/RefinementUtils.h"
+#include "llvm/Transforms/LiquidTypes/AnalysisRetriever.h"
 
 using namespace std::literals::string_literals;
 
@@ -37,7 +38,7 @@ namespace liquid {
 		return ResultType::Success();
 	}
 
-	ResultType RefinementConstraintGenerator::addConstraintsForVariable(const RefinementMetadataForVariable& variable, const std::string& blockName, bool ignoreAssumes)
+	ResultType RefinementConstraintGenerator::addConstraintsForVariable(const RefinementMetadataForVariable& variable, const std::string& prefix, const std::string& blockName, const bool ignoreAssumes)
 	{
 		std::vector<std::string> variableConstraints;
 		FixpointBaseType fixpointType;
@@ -71,20 +72,20 @@ namespace liquid {
 			variableConstraints = RefinementUtils::vectorAppend(variableConstraints, nonDependentConstraints);
 		}
 
-		variableEnv.AddVariable(blockName, variable.LLVMName);
-		auto createBinderRes = constraintBuilder.CreateBinderWithQualifiers(variable.LLVMName, fixpointType, variableConstraints);
+		variableEnv.AddVariable(blockName, prefix + variable.LLVMName);
+		auto createBinderRes = constraintBuilder.CreateBinderWithQualifiers(prefix + variable.LLVMName, fixpointType, variableConstraints);
 		if (!createBinderRes.Succeeded) { return createBinderRes; }
 
 		return ResultType::Success();
 	}
 
-	ResultType RefinementConstraintGenerator::BuildConstraintsFromSignature(const RefinementMetadata& refinementData)
+	ResultType RefinementConstraintGenerator::buildConstraintsFromSignatureForBlock(const RefinementMetadata& refinementData, const std::string& prefix, const std::string& blockName, const bool ignoreParameterAssumes, const bool ignoreReturnAssumes)
 	{
 		for (auto& param : refinementData.Parameters)
 		{
 			//function parameters are not declared in any block, but are instead a part of the signature
 			//we will just add these to the entry block, which is the first block of any function
-			ResultType addConstraintRet = addConstraintsForVariable(param, "entry", false /* ignoreAssumes */);
+			ResultType addConstraintRet = addConstraintsForVariable(param, prefix, blockName, ignoreParameterAssumes /* ignoreAssumes */);
 			if (!addConstraintRet.Succeeded)
 			{
 				return addConstraintRet;
@@ -93,7 +94,7 @@ namespace liquid {
 
 		//assumes of the return type can be ignored here (it will be used at call sites of this functions) 
 		//as there is nothing to check and we can't use this information to help verification of this function
-		ResultType addConstraintRet = addConstraintsForVariable(refinementData.Return, "entry", true /* ignoreAssumes */);
+		ResultType addConstraintRet = addConstraintsForVariable(refinementData.Return, prefix, blockName, ignoreReturnAssumes /* ignoreAssumes */);
 		if (!addConstraintRet.Succeeded)
 		{
 			return addConstraintRet;
@@ -102,7 +103,28 @@ namespace liquid {
 		return ResultType::Success();
 	}
 
-	ResultType RefinementConstraintGenerator::BuildConstraintsFromInstructions(const RefinementMetadata& refinementData)
+	ResultType RefinementConstraintGenerator::BuildConstraintsFromSignature(const RefinementMetadata& refinementData)
+	{
+		return buildConstraintsFromSignatureForBlock(refinementData, "" /* prefix */, "entry", false /* ignoreParameterAssumes */, true /* ignoreReturnAssumes */);
+	}
+
+	ResultType RefinementConstraintGenerator::generateCallSignatureVariables(const std::string& blockName, const CallInst& callInst, const AnalysisRetriever& analysisRetriever, std::string& prefixUsed, const RefinementFunctionInfo* &callFunctionInfo)
+	{
+		auto callFnName = callInst.getCalledFunction();
+
+		if (!analysisRetriever.ContainsAnalysisForFunction(*callFnName))
+		{
+			return ResultType::Error("Refinement Types: Not all function calls are supported currently");
+		}
+
+		callFunctionInfo = analysisRetriever.GetAnalysisForFunction(*callFnName);
+
+		auto opRegisterName = callInst.getName().str();
+		prefixUsed = opRegisterName + "_";
+		return buildConstraintsFromSignatureForBlock(callFunctionInfo->ParsedFnRefinementMetadata, prefixUsed, blockName, true /* ignoreParameterAssumes */, false /* ignoreReturnAssumes */);
+	}
+
+	ResultType RefinementConstraintGenerator::BuildConstraintsFromInstructions(const RefinementMetadata& refinementData, const AnalysisRetriever& analysisRetriever)
 	{
 		for (auto& block : Func)
 		{
@@ -146,7 +168,14 @@ namespace liquid {
 				}
 				else if (auto callInst = dyn_cast<CallInst>(&instr))
 				{
-					ResultType res = instructionConstraintBuilder.CaptureCallInstructionConstraint(blockName, *callInst, refinementData);
+					std::string prefixUsed;
+					const RefinementFunctionInfo* callRefFunctionInfo;
+					{
+						ResultType res = generateCallSignatureVariables(blockName, *callInst, analysisRetriever, prefixUsed, callRefFunctionInfo);
+						if (!res.Succeeded) { return res; }
+					}
+
+					ResultType res = instructionConstraintBuilder.CaptureCallInstructionConstraint(blockName, *callInst, prefixUsed, callRefFunctionInfo);
 					if (!res.Succeeded) { return res; }
 				}
 				else

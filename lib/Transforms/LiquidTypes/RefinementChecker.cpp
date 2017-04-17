@@ -40,10 +40,14 @@ namespace liquid {
 				}
 			}
 
-			std::cout << "Fixpoint Constraints:\n" << response.OutputStreamText << "\n";
-
 			if (!response.IsSafe)
 			{
+				std::cout << "Fixpoint Constraints:\n" << response.OutputStreamText << "\n";
+				if (response.ErrorStreamText != "")
+				{
+					std::cerr << response.ErrorStreamText << "\n";
+				}
+
 				std::string errorStr = "Refinement Types: Could not show safety of function : " + F.getName().str();
 				report_fatal_error(errorStr);
 			}

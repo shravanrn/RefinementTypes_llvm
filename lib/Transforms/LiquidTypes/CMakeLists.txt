@@ -10,6 +10,7 @@ add_llvm_library(LLVMTransformLiquidTypes
   RefinementConstraintGenerator.cpp
   RefinementInstructionConstraintGenerator.cpp
   VariablesEnvironment.cpp
+  AnalysisRetriever.cpp
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/LiquidTypes
 
   DEPENDS

@@ -12,7 +12,7 @@ namespace liquid {
 	public:
 
 		template <typename T>
-		static std::string stringJoin(std::string separator, std::vector<T> strings)
+		static std::string stringJoin(const std::string& separator, const std::vector<T>& strings)
 		{
 			std::stringstream outputBuff;
 			bool first = true;
@@ -34,7 +34,7 @@ namespace liquid {
 		}
 
 		template <typename T>
-		static std::vector<T> vectorAppend(std::vector<T>& vectorA, std::vector<T>& vectorB)
+		static std::vector<T> vectorAppend(const std::vector<T>& vectorA, const std::vector<T>& vectorB)
 		{
 			std::vector<T> result;
 			result.reserve(vectorA.size() + vectorB.size());
@@ -44,7 +44,7 @@ namespace liquid {
 		}
 
 		template <typename T1, typename T2>
-		static bool containsKey(std::map<T1, T2> m, T1 key)
+		static bool containsKey(const std::map<T1, T2>& m, const T1& key)
 		{
 			auto it = m.find(key);
 			bool found = (it != m.end());
