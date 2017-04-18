@@ -1,13 +1,10 @@
 #include "llvm/Transforms/LiquidTypes/FixpointManager.h"
 #include <memory>
-//#include <errno.h>
-//#include <stdio.h>
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/MemoryBuffer.h"
-//#include "llvm/ADT/SmallVector.h"
 
 using namespace std::literals::string_literals;
 using namespace llvm;
@@ -17,8 +14,6 @@ using namespace llvm;
 #else
 #include <io.h>
 #endif
-
-
 
 namespace liquid {
 

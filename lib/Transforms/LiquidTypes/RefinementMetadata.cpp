@@ -1,21 +1,34 @@
 #include "llvm/Transforms/LiquidTypes/RefinementMetadata.h"
 #include "llvm/Transforms/LiquidTypes/RefinementUtils.h"
+#include "../../Transforms/LiquidTypesParser/RefinementParser.h"
+
+#include <vector>
 
 using namespace std::string_literals;
 using namespace liquid;
 using namespace llvm;
 
 namespace {
-	RefinementMetadataForVariable parseVariable(RefinementMetadataForVariable_Raw original)
+	std::vector<ParserError> parseVariable(RefinementMetadataForVariable_Raw original, RefinementMetadataForVariable& copy)
 	{
-		RefinementMetadataForVariable copy;
 		copy.OriginalName = original.OriginalName;
 		copy.LLVMName = original.LLVMName;
 		copy.OriginalType = original.OriginalType;
 		copy.LLVMType = original.LLVMType;
-		copy.Assume = original.Assume;
-		copy.Verify = original.Verify;
-		return copy;
+
+		std::vector<ParserError> parseErrors;
+		RefinementParser::ParseRefinement(original.Assume, parseErrors, copy.Assume);
+		RefinementParser::ParseRefinement(original.Verify, parseErrors, copy.Verify);
+
+		return parseErrors;
+	}
+
+	void appendErrorString(ParserError error, std::string& message)
+	{
+		message +=
+			//"Line: "s + std::to_string(error.Line) + 
+			" Column: "s + std::to_string(error.Column) +
+			" "s + error.Message + "\n"s;
 	}
 }
 
@@ -26,13 +39,39 @@ ResultType RefinementMetadata::ParseMetadata(RefinementMetadata_Raw& in, Refinem
 		auto copy = original;
 		out.Qualifiers.push_back(copy);
 	}
+	
+	bool foundErrors = false;
+	std::string errorString = "";
 
 	for (auto const& original : in.Parameters)
 	{
-		out.Parameters.push_back(parseVariable(original));
+		RefinementMetadataForVariable copy;
+		std::vector<ParserError> errors = parseVariable(original, copy);
+
+		if (errors.size() > 0)
+		{
+			for (auto& error : errors) { appendErrorString(error, errorString);}
+			foundErrors = true;
+		}
+
+		out.Parameters.push_back(copy);
 	}
 
-	out.Return = parseVariable(in.Return);
+	{
+		std::vector<ParserError> errors = parseVariable(in.Return, out.Return);
+
+		if (errors.size() > 0)
+		{
+			for (auto& error : errors) { appendErrorString(error, errorString); }
+			foundErrors = true;
+		}
+	}
+
+	if (foundErrors)
+	{
+		return ResultType::Error(errorString);
+	}
+
 	return ResultType::Success();
 }
 
