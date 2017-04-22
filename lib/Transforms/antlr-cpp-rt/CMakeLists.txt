@@ -38,7 +38,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
 elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
   set(compiler_flags_to_use "${compiler_flags_to_use} -pedantic -Wno-overloaded-virtual -Wno-multichar -fexceptions")
 elseif(MSVC)
-  set(compiler_flags_to_use "/EHsc")
+  set(compiler_flags_to_use "/EHsc /wd4138")
 endif()
 
 set_target_properties(LLVMAntlrRuntime PROPERTIES CMAKE_CXX_FLAGS                "")

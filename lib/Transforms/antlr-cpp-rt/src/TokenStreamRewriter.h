@@ -312,10 +312,10 @@ namespace antlr4 {
     std::vector<T*> getKindOfOps(std::vector<T1*> rewrites, T * /*kind*/, size_t before) {
       std::vector<T*> ops = std::vector<T*>();
       for (size_t i = 0; i < before && i < rewrites.size(); i++) {
-        TokenStreamRewriter::RewriteOperation *op = dynamic_cast<RewriteOperation*>(rewrites[i]);
-        if (op == nullptr) { // ignore deleted
+        if (rewrites[i] == nullptr) { // ignore deleted
           continue;
         }
+        T *op = dynamic_cast<T*>(rewrites[i]);
         if (op != nullptr) {
           ops.push_back(dynamic_cast<T*>(op));
         }
