@@ -30,6 +30,7 @@ valueExpression :
 	INTCONSTANT 			| 
 	TRUE 					|
 	FALSE 					|
+	VALUE 					|
 	variable				|
 	'(' valueExpression ')' |
 	valueExpression binaryoperator valueExpression;

@@ -79,6 +79,7 @@ public:
     tree::TerminalNode *INTCONSTANT();
     tree::TerminalNode *TRUE();
     tree::TerminalNode *FALSE();
+    tree::TerminalNode *VALUE();
     VariableContext *variable();
     std::vector<ValueExpressionContext *> valueExpression();
     ValueExpressionContext* valueExpression(size_t i);

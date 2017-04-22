@@ -2,6 +2,8 @@
 #include "llvm/Transforms/LiquidTypes/RefinementUtils.h"
 #include "llvm/Transforms/LiquidTypes/AnalysisRetriever.h"
 
+#include <map>
+
 using namespace std::literals::string_literals;
 
 namespace liquid {
@@ -38,7 +40,13 @@ namespace liquid {
 		return ResultType::Success();
 	}
 
-	ResultType RefinementConstraintGenerator::addConstraintsForVariable(const RefinementMetadataForVariable& variable, const std::string& prefix, const std::string& blockName, const bool ignoreAssumes)
+	ResultType RefinementConstraintGenerator::addConstraintsForVariable(
+		const RefinementMetadataForVariable& variable, 
+		const std::string& prefix, 
+		const std::string& blockName, 
+		const bool ignoreAssumes,
+		const std::map<std::string, std::string>& variableReplacements
+	)
 	{
 		std::vector<std::string> variableConstraints;
 		FixpointBaseType fixpointType;
@@ -59,16 +67,28 @@ namespace liquid {
 
 		if (!ignoreAssumes)
 		{
-			if (variable.Assume.ParsedRefinementString != "")
+			if (variable.Assume.OriginalRefinementString != "")
 			{
-				std::vector<std::string> nonDependentConstraints = getNonDependentConstraints(variable.Assume.ParsedRefinementString);
+				std::string refinementStringToUse = variable.Assume.ParsedRefinementString;
+				if (!variableReplacements.empty())
+				{
+					refinementStringToUse = variable.Assume.ReplaceVariables(variableReplacements);
+				}
+
+				std::vector<std::string> nonDependentConstraints = getNonDependentConstraints(refinementStringToUse);
 				variableConstraints = RefinementUtils::vectorAppend(variableConstraints, nonDependentConstraints);
 			}
 		}
 
-		if (variable.Verify.ParsedRefinementString != "")
+		if (variable.Verify.OriginalRefinementString != "")
 		{
-			std::vector<std::string> nonDependentConstraints = getNonDependentConstraints(variable.Verify.ParsedRefinementString);
+			std::string refinementStringToUse = variable.Verify.ParsedRefinementString;
+			if (!variableReplacements.empty())
+			{
+				refinementStringToUse = variable.Verify.ReplaceVariables(variableReplacements);
+			}
+
+			std::vector<std::string> nonDependentConstraints = getNonDependentConstraints(refinementStringToUse);
 			variableConstraints = RefinementUtils::vectorAppend(variableConstraints, nonDependentConstraints);
 		}
 
@@ -79,13 +99,31 @@ namespace liquid {
 		return ResultType::Success();
 	}
 
-	ResultType RefinementConstraintGenerator::buildConstraintsFromSignatureForBlock(const RefinementMetadata& refinementData, const std::string& prefix, const std::string& blockName, const bool ignoreParameterAssumes, const bool ignoreReturnAssumes)
+	ResultType RefinementConstraintGenerator::buildConstraintsFromSignatureForBlock(
+		const RefinementMetadata& refinementData, 
+		const std::string& prefix, 
+		const std::string& blockName, 
+		const bool ignoreParameterAssumes, 
+		const bool ignoreReturnAssumes
+	)
 	{
+		std::map<std::string, std::string> variableReplacements;
+
+		//Find variable renamings
 		for (auto& param : refinementData.Parameters)
 		{
-			//function parameters are not declared in any block, but are instead a part of the signature
-			//we will just add these to the entry block, which is the first block of any function
-			ResultType addConstraintRet = addConstraintsForVariable(param, prefix, blockName, ignoreParameterAssumes /* ignoreAssumes */);
+			const std::string originalVarName = param.OriginalName;
+			const std::string llvmVarName = prefix + param.LLVMName;
+
+			if (originalVarName != llvmVarName)
+			{
+				variableReplacements[originalVarName] = llvmVarName;
+			}
+		}
+
+		for (auto& param : refinementData.Parameters)
+		{
+			ResultType addConstraintRet = addConstraintsForVariable(param, prefix, blockName, ignoreParameterAssumes /* ignoreAssumes */, variableReplacements);
 			if (!addConstraintRet.Succeeded)
 			{
 				return addConstraintRet;
@@ -94,7 +132,7 @@ namespace liquid {
 
 		//assumes of the return type can be ignored here (it will be used at call sites of this functions) 
 		//as there is nothing to check and we can't use this information to help verification of this function
-		ResultType addConstraintRet = addConstraintsForVariable(refinementData.Return, prefix, blockName, ignoreReturnAssumes /* ignoreAssumes */);
+		ResultType addConstraintRet = addConstraintsForVariable(refinementData.Return, prefix, blockName, ignoreReturnAssumes /* ignoreAssumes */, variableReplacements);
 		if (!addConstraintRet.Succeeded)
 		{
 			return addConstraintRet;
