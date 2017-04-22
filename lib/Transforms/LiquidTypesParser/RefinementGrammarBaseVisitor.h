@@ -15,6 +15,14 @@
 class RefinementGrammarBaseVisitor : public RefinementGrammarVisitor {
 public:
 
+  virtual antlrcpp::Any visitBinaryoperator(RefinementGrammarParser::BinaryoperatorContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual antlrcpp::Any visitVariable(RefinementGrammarParser::VariableContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual antlrcpp::Any visitValueExpression(RefinementGrammarParser::ValueExpressionContext *ctx) override {
     return visitChildren(ctx);
   }
@@ -28,6 +36,10 @@ public:
   }
 
   virtual antlrcpp::Any visitConjunctiveNormalForm(RefinementGrammarParser::ConjunctiveNormalFormContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual antlrcpp::Any visitParse(RefinementGrammarParser::ParseContext *ctx) override {
     return visitChildren(ctx);
   }
 

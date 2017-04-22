@@ -59,16 +59,16 @@ namespace liquid {
 
 		if (!ignoreAssumes)
 		{
-			if (variable.Assume != "")
+			if (variable.Assume.ParsedRefinementString != "")
 			{
-				std::vector<std::string> nonDependentConstraints = getNonDependentConstraints(variable.Assume);
+				std::vector<std::string> nonDependentConstraints = getNonDependentConstraints(variable.Assume.ParsedRefinementString);
 				variableConstraints = RefinementUtils::vectorAppend(variableConstraints, nonDependentConstraints);
 			}
 		}
 
-		if (variable.Verify != "")
+		if (variable.Verify.ParsedRefinementString != "")
 		{
-			std::vector<std::string> nonDependentConstraints = getNonDependentConstraints(variable.Verify);
+			std::vector<std::string> nonDependentConstraints = getNonDependentConstraints(variable.Verify.ParsedRefinementString);
 			variableConstraints = RefinementUtils::vectorAppend(variableConstraints, nonDependentConstraints);
 		}
 

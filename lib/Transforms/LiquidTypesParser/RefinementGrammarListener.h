@@ -14,6 +14,12 @@
 class RefinementGrammarListener : public antlr4::tree::ParseTreeListener {
 public:
 
+  virtual void enterBinaryoperator(RefinementGrammarParser::BinaryoperatorContext *ctx) = 0;
+  virtual void exitBinaryoperator(RefinementGrammarParser::BinaryoperatorContext *ctx) = 0;
+
+  virtual void enterVariable(RefinementGrammarParser::VariableContext *ctx) = 0;
+  virtual void exitVariable(RefinementGrammarParser::VariableContext *ctx) = 0;
+
   virtual void enterValueExpression(RefinementGrammarParser::ValueExpressionContext *ctx) = 0;
   virtual void exitValueExpression(RefinementGrammarParser::ValueExpressionContext *ctx) = 0;
 
@@ -25,6 +31,9 @@ public:
 
   virtual void enterConjunctiveNormalForm(RefinementGrammarParser::ConjunctiveNormalFormContext *ctx) = 0;
   virtual void exitConjunctiveNormalForm(RefinementGrammarParser::ConjunctiveNormalFormContext *ctx) = 0;
+
+  virtual void enterParse(RefinementGrammarParser::ParseContext *ctx) = 0;
+  virtual void exitParse(RefinementGrammarParser::ParseContext *ctx) = 0;
 
 
 };

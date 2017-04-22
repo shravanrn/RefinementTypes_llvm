@@ -20,8 +20,8 @@ public:
   };
 
   enum {
-    RuleValueExpression = 0, RuleSingleConstraint = 1, RuleDisjunctions = 2, 
-    RuleConjunctiveNormalForm = 3
+    RuleBinaryoperator = 0, RuleVariable = 1, RuleValueExpression = 2, RuleSingleConstraint = 3, 
+    RuleDisjunctions = 4, RuleConjunctiveNormalForm = 5, RuleParse = 6
   };
 
   RefinementGrammarParser(TokenStream *input);
@@ -34,10 +34,43 @@ public:
   virtual dfa::Vocabulary& getVocabulary() const override;
 
 
+  class BinaryoperatorContext;
+  class VariableContext;
   class ValueExpressionContext;
   class SingleConstraintContext;
   class DisjunctionsContext;
-  class ConjunctiveNormalFormContext; 
+  class ConjunctiveNormalFormContext;
+  class ParseContext; 
+
+  class BinaryoperatorContext : public ParserRuleContext {
+  public:
+    BinaryoperatorContext(ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    tree::TerminalNode *BINARYOPERATOR();
+
+    virtual void enterRule(tree::ParseTreeListener *listener) override;
+    virtual void exitRule(tree::ParseTreeListener *listener) override;
+
+    virtual antlrcpp::Any accept(tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  BinaryoperatorContext* binaryoperator();
+
+  class VariableContext : public ParserRuleContext {
+  public:
+    VariableContext(ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    tree::TerminalNode *VARIABLE();
+
+    virtual void enterRule(tree::ParseTreeListener *listener) override;
+    virtual void exitRule(tree::ParseTreeListener *listener) override;
+
+    virtual antlrcpp::Any accept(tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  VariableContext* variable();
 
   class ValueExpressionContext : public ParserRuleContext {
   public:
@@ -46,10 +79,10 @@ public:
     tree::TerminalNode *INTCONSTANT();
     tree::TerminalNode *TRUE();
     tree::TerminalNode *FALSE();
-    tree::TerminalNode *VARIABLE();
+    VariableContext *variable();
     std::vector<ValueExpressionContext *> valueExpression();
     ValueExpressionContext* valueExpression(size_t i);
-    tree::TerminalNode *BINARYOPERATOR();
+    BinaryoperatorContext *binaryoperator();
 
     virtual void enterRule(tree::ParseTreeListener *listener) override;
     virtual void exitRule(tree::ParseTreeListener *listener) override;
@@ -118,6 +151,22 @@ public:
   };
 
   ConjunctiveNormalFormContext* conjunctiveNormalForm();
+
+  class ParseContext : public ParserRuleContext {
+  public:
+    ParseContext(ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    tree::TerminalNode *EOF();
+    ConjunctiveNormalFormContext *conjunctiveNormalForm();
+
+    virtual void enterRule(tree::ParseTreeListener *listener) override;
+    virtual void exitRule(tree::ParseTreeListener *listener) override;
+
+    virtual antlrcpp::Any accept(tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  ParseContext* parse();
 
 
   virtual bool sempred(RuleContext *_localctx, size_t ruleIndex, size_t predicateIndex) override;

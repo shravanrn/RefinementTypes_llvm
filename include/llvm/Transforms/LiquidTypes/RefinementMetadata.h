@@ -8,6 +8,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/Transforms/LiquidTypes/ResultType.h"
 #include "llvm/Transforms/LiquidTypes/RefinementMetadata_Raw.h"
+#include "../../Transforms/LiquidTypesParser/RefinementParser.h"
 
 using namespace llvm;
 
@@ -20,8 +21,8 @@ namespace liquid {
 		std::string LLVMName;
 		std::string OriginalType;
 		llvm::Type* LLVMType;
-		std::string Assume;
-		std::string Verify;
+		ParsedRefinement Assume;
+		ParsedRefinement Verify;
 
 		RefinementMetadataForVariable& operator=(const RefinementMetadataForVariable& other);
 	};

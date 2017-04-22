@@ -1,6 +1,5 @@
 #include "llvm/Transforms/LiquidTypes/RefinementMetadata.h"
 #include "llvm/Transforms/LiquidTypes/RefinementUtils.h"
-#include "../../Transforms/LiquidTypesParser/RefinementParser.h"
 
 #include <vector>
 

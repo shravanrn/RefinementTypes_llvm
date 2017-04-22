@@ -19,6 +19,10 @@ public:
   /**
    * Visit parse trees produced by RefinementGrammarParser.
    */
+    virtual antlrcpp::Any visitBinaryoperator(RefinementGrammarParser::BinaryoperatorContext *context) = 0;
+
+    virtual antlrcpp::Any visitVariable(RefinementGrammarParser::VariableContext *context) = 0;
+
     virtual antlrcpp::Any visitValueExpression(RefinementGrammarParser::ValueExpressionContext *context) = 0;
 
     virtual antlrcpp::Any visitSingleConstraint(RefinementGrammarParser::SingleConstraintContext *context) = 0;
@@ -26,6 +30,8 @@ public:
     virtual antlrcpp::Any visitDisjunctions(RefinementGrammarParser::DisjunctionsContext *context) = 0;
 
     virtual antlrcpp::Any visitConjunctiveNormalForm(RefinementGrammarParser::ConjunctiveNormalFormContext *context) = 0;
+
+    virtual antlrcpp::Any visitParse(RefinementGrammarParser::ParseContext *context) = 0;
 
 
 };

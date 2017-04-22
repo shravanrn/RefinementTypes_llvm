@@ -16,6 +16,12 @@
 class RefinementGrammarBaseListener : public RefinementGrammarListener {
 public:
 
+  virtual void enterBinaryoperator(RefinementGrammarParser::BinaryoperatorContext * /*ctx*/) override { }
+  virtual void exitBinaryoperator(RefinementGrammarParser::BinaryoperatorContext * /*ctx*/) override { }
+
+  virtual void enterVariable(RefinementGrammarParser::VariableContext * /*ctx*/) override { }
+  virtual void exitVariable(RefinementGrammarParser::VariableContext * /*ctx*/) override { }
+
   virtual void enterValueExpression(RefinementGrammarParser::ValueExpressionContext * /*ctx*/) override { }
   virtual void exitValueExpression(RefinementGrammarParser::ValueExpressionContext * /*ctx*/) override { }
 
@@ -27,6 +33,9 @@ public:
 
   virtual void enterConjunctiveNormalForm(RefinementGrammarParser::ConjunctiveNormalFormContext * /*ctx*/) override { }
   virtual void exitConjunctiveNormalForm(RefinementGrammarParser::ConjunctiveNormalFormContext * /*ctx*/) override { }
+
+  virtual void enterParse(RefinementGrammarParser::ParseContext * /*ctx*/) override { }
+  virtual void exitParse(RefinementGrammarParser::ParseContext * /*ctx*/) override { }
 
 
   virtual void enterEveryRule(ParserRuleContext * /*ctx*/) override { }
