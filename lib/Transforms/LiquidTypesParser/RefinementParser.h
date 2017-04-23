@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 
 namespace liquid
 {
@@ -17,13 +18,21 @@ namespace liquid
 		ParserError(std::string message, unsigned int line, unsigned int column) : Message(message), Line(line), Column(column) {}
 	};
 
+	class RefinementPiece
+	{
+	public:
+		std::string RefinementPieceText;
+		std::set<std::string> VariablesUsed;
+	};
+
 	class ParsedRefinement
 	{
 	public:
 		std::string OriginalRefinementString;
 		std::string ParsedRefinementString;
 
-		const std::string ReplaceVariables(const std::map<std::string, std::string>& replacements) const;
+		ParsedRefinement ReplaceVariables(const std::map<std::string, std::string>& replacements) const;
+		std::vector<RefinementPiece> GetRefinementParts() const;
 	};
 	
 	class RefinementParser

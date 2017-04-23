@@ -32,14 +32,18 @@ namespace liquid {
 				//this is a constant, so just add it to the top block. No point adding it to the current block
 				variableEnv.AddVariable("entry", possibleBinderName);
 				std::vector<std::string> variableConstraints;
-				variableConstraints.push_back("__value == " + constValue);
+				std::string constraintString = "__value == " + constValue;
+				variableConstraints.push_back(constraintString);
 
 				FixpointBaseType fixpointType;
 				auto convertResult = fixpointTypeConvertor.GetFixpointType(*(constantVal->getType()), fixpointType);
 				if (!convertResult.Succeeded) { return convertResult; }
 
-				auto createBinderRes = constraintBuilder.CreateBinderWithQualifiers(possibleBinderName, fixpointType, variableConstraints);
+				auto createBinderRes = constraintBuilder.CreateBinderWithConstraints(possibleBinderName, fixpointType, variableConstraints);
 				if (!createBinderRes.Succeeded) { return createBinderRes; }
+
+				ResultType addQualRes = constraintBuilder.AddQualifierIfNew(possibleBinderName, { fixpointType }, { "__value" }, constraintString);
+				if (!addQualRes.Succeeded) { return addQualRes; }
 			}
 
 			binderName = possibleBinderName;

@@ -28,15 +28,15 @@ namespace {
 	};
 
 
-	class RefinementGrammarRewriteVisitor : public RefinementGrammarVisitor
+	class RefinementGrammarFixpointRewriteVisitor : public RefinementGrammarBaseVisitor
 	{
-	public:
+	private:
 		TokenStreamRewriter* Rewriter;
-		const std::map<std::string, std::string>& VariableReplacements;
 
+	public:
 		//somehow taking the TokenStreamRewriter by reference causes the variable to reset its state after the visitor is run
 		//not looking into it for now, but seems like a bug with the antlr generated parser
-		RefinementGrammarRewriteVisitor(TokenStreamRewriter* rewriter, const std::map<std::string, std::string>& variableReplacements) : Rewriter(rewriter), VariableReplacements(variableReplacements) {}
+		RefinementGrammarFixpointRewriteVisitor(TokenStreamRewriter* rewriter) : Rewriter(rewriter) {}
 
 		antlrcpp::Any visitBinaryoperator(RefinementGrammarParser::BinaryoperatorContext *context) override {
 			//C++ uses % for modulo, whereas fixpoint uses mod
@@ -58,6 +58,17 @@ namespace {
 
 			return visitChildren(context);
 		}
+	};
+
+	class RefinementVariableRewriteVisitor : public RefinementGrammarBaseVisitor
+	{
+	public:
+		TokenStreamRewriter* Rewriter;
+		const std::map<std::string, std::string>& VariableReplacements;
+
+		//somehow taking the TokenStreamRewriter by reference causes the variable to reset its state after the visitor is run
+		//not looking into it for now, but seems like a bug with the antlr generated parser
+		RefinementVariableRewriteVisitor(TokenStreamRewriter* rewriter, const std::map<std::string, std::string>& variableReplacements) : Rewriter(rewriter), VariableReplacements(variableReplacements) {}
 
 		antlrcpp::Any visitVariable(RefinementGrammarParser::VariableContext *context) override {
 			const std::string currVariableName = context->getText();
@@ -65,7 +76,7 @@ namespace {
 			auto pos = VariableReplacements.find(currVariableName);
 			if (pos != VariableReplacements.end())
 			{
-				std::string replacement = pos->second;
+				std::string newVariableName = pos->second;
 
 				//get the first variable token
 				tree::TerminalNode* node = context->getToken(RefinementGrammarLexer::VARIABLE, 0);
@@ -78,30 +89,51 @@ namespace {
 					throw new std::exception("Could not retrieve the token for variable");
 				}
 
-				Rewriter->replace(token, replacement);
+				Rewriter->replace(token, newVariableName);
 			}
 
 			return visitChildren(context);
 		}
+	};
 
-		antlrcpp::Any visitValueExpression(RefinementGrammarParser::ValueExpressionContext *context) override {
-			return visitChildren(context);
-		}
-		antlrcpp::Any visitSingleConstraint(RefinementGrammarParser::SingleConstraintContext *context) override {
-			return visitChildren(context);
-		}
+	class RefinementDisjunctionCollectVisitor : public RefinementGrammarBaseVisitor
+	{
+	public:
+		std::vector<RefinementPiece>& Disjunctions;
+
+		//somehow taking the TokenStreamRewriter by reference causes the variable to reset its state after the visitor is run
+		//not looking into it for now, but seems like a bug with the antlr generated parser
+		RefinementDisjunctionCollectVisitor(std::vector<RefinementPiece>& disjunctions) : Disjunctions(disjunctions) {}
+
 		antlrcpp::Any visitDisjunctions(RefinementGrammarParser::DisjunctionsContext *context) override {
+
+			auto is = context->start->getInputStream();
+			misc::Interval interval(context->start->getStartIndex(), context->stop->getStopIndex());
+			std::string originalText = is->getText(interval);
+
+			RefinementPiece refinementPiece;
+			refinementPiece.RefinementPieceText = originalText;
+			Disjunctions.push_back(refinementPiece);
+
 			return visitChildren(context);
 		}
-		antlrcpp::Any visitConjunctiveNormalForm(RefinementGrammarParser::ConjunctiveNormalFormContext *context) override {
-			return visitChildren(context);
-		}
-		antlrcpp::Any visitParse(RefinementGrammarParser::ParseContext *context) override {
+
+		antlrcpp::Any visitVariable(RefinementGrammarParser::VariableContext *context) override {
+
+			assert(Disjunctions.size() > 0);
+			const std::string currVariableName = context->getText();
+			Disjunctions[Disjunctions.size() - 1].VariablesUsed.insert(currVariableName);
+
 			return visitChildren(context);
 		}
 	};
 
-	bool parseAndRewrite(const std::string refinement, const std::map<std::string, std::string>& variableReplacements, std::vector<ParserError>& errors, std::string& output) noexcept
+	template<typename FnRetType>
+	bool safeParse(const std::string refinement, 
+		const std::function<FnRetType(CommonTokenStream&, ParserRuleContext*)>& functionToCall,
+		std::vector<ParserError>& errors, 
+		FnRetType& output
+	) noexcept
 	{
 		try
 		{
@@ -114,10 +146,7 @@ namespace {
 			parser.removeErrorListeners();
 			parser.addErrorListener(&errorHandler);
 
-			TokenStreamRewriter rewriter(&tokens);
-			RefinementGrammarRewriteVisitor generator(&rewriter, variableReplacements);
-
-			auto parsedData = parser.parse();
+			ParserRuleContext* parsedData = parser.parse();
 
 			if (errorHandler.Errors.size() > 0)
 			{
@@ -125,10 +154,7 @@ namespace {
 				return false;
 			}
 
-			generator.visit(parsedData);
-
-			output = rewriter.getText();
-
+			output = functionToCall(tokens, parsedData);
 			return errorHandler.Errors.size() == 0;
 		}
 		catch (unsigned int param)
@@ -168,22 +194,74 @@ namespace {
 
 namespace liquid
 {
-	
-	const std::string ParsedRefinement::ReplaceVariables(const std::map<std::string, std::string>& replacements) const
+	ParsedRefinement ParsedRefinement::ReplaceVariables(const std::map<std::string, std::string>& replacements) const
 	{
-		//At this stage, we will assume parsing is already successfull, so just supress any errors
+		const std::function<std::string(CommonTokenStream&, ParserRuleContext*)> parseFunction = 
+			[&replacements](CommonTokenStream& tokens, ParserRuleContext* parsedData) -> std::string {
+				TokenStreamRewriter tokenRewriter(&tokens);
+				RefinementVariableRewriteVisitor variableRewriter(&tokenRewriter, replacements);
+				variableRewriter.visit(parsedData);
+
+				const std::string ret = tokenRewriter.getText();
+				return ret;
+			};
+
 		std::vector<ParserError> errors;
-		std::string output;
-		bool success = parseAndRewrite(this->OriginalRefinementString, replacements, errors, output);
-		assert(success == true && errors.size() == 0);
-		return output;
+
+		std::string variableReplacedString;
+		{
+			//At this stage, we will assume parsing is already successfull, so just suppress any errors
+			bool success = safeParse(this->OriginalRefinementString, parseFunction, errors, variableReplacedString);
+			assert(success);
+		}
+
+		ParsedRefinement ret;
+		{
+			//again, we should not see any errors anymore as they would be caught earlier
+			bool success = RefinementParser::ParseRefinement(variableReplacedString, errors, ret);
+			assert(success);
+		}
+
+		return ret;
+	}
+
+	std::vector<RefinementPiece> ParsedRefinement::GetRefinementParts() const
+	{
+		std::vector<RefinementPiece> disjunctions;
+
+		const std::function<bool(CommonTokenStream&, ParserRuleContext*)> parseFunction =
+			[&disjunctions](CommonTokenStream& tokens, ParserRuleContext* parsedData) -> bool {
+
+			RefinementDisjunctionCollectVisitor disjunctionCollector(disjunctions);
+			disjunctionCollector.visit(parsedData);
+			return true;
+		};
+
+		std::vector<ParserError> errors;
+
+		{
+			bool dummyRet;
+			//At this stage, we will assume parsing is already successfull, so just suppress any errors
+			bool success = safeParse(this->OriginalRefinementString, parseFunction, errors, dummyRet);
+			assert(success);
+		}
+
+		return disjunctions;
 	}
 
 	bool RefinementParser::ParseRefinement(const std::string refinement, std::vector<ParserError>& errors, ParsedRefinement& output) noexcept
 	{
-		//no replacements
-		std::map<std::string, std::string> replacements;
+		const std::function<std::string(CommonTokenStream&, ParserRuleContext*)> parseFunction = 
+			[](CommonTokenStream& tokens, ParserRuleContext* parsedData) -> std::string {
+				TokenStreamRewriter tokenRewriter(&tokens);
+				RefinementGrammarFixpointRewriteVisitor fixpointRewriter(&tokenRewriter);
+				fixpointRewriter.visit(parsedData);
+
+				const std::string ret = tokenRewriter.getText();
+				return ret;
+			};
+
 		output.OriginalRefinementString = refinement;
-		return parseAndRewrite(refinement, replacements, errors, output.ParsedRefinementString);
+		return safeParse(refinement, parseFunction, errors, output.ParsedRefinementString);
 	}
 };

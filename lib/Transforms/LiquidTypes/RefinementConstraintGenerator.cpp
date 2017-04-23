@@ -14,13 +14,6 @@ namespace liquid {
 		return maxVal;
 	}
 
-	std::vector<std::string> RefinementConstraintGenerator::getNonDependentConstraints(std::string variableConstraint)
-	{
-		//TODO:
-		std::vector<std::string> ret{ variableConstraint };
-		return ret;
-	}
-
 	ResultType RefinementConstraintGenerator::registerAndRetrieveIntegerQualifiers(const llvm::IntegerType& type, std::vector<std::string>& constraints)
 	{
 		std::string maxIntVal = getMaxValueForIntWidth(type.getIntegerBitWidth());
@@ -45,14 +38,11 @@ namespace liquid {
 		const std::string& prefix, 
 		const std::string& blockName, 
 		const bool ignoreAssumes,
-		const std::map<std::string, std::string>& variableReplacements
+		const std::map<std::string, std::string>& variableReplacements,
+		const std::map<std::string, FixpointBaseType>& variableTypes
 	)
 	{
 		std::vector<std::string> variableConstraints;
-		FixpointBaseType fixpointType;
-
-		auto convertResult = fixpointTypeConvertor.GetFixpointType(*(variable.LLVMType), fixpointType);
-		if (!convertResult.Succeeded) { return convertResult; }
 
 		if (variable.LLVMType->isIntegerTy())
 		{
@@ -65,36 +55,72 @@ namespace liquid {
 			return ResultType::Error("Refinement types: non int type not yet supported");
 		}
 
+		std::vector<RefinementPiece> refinementPiecesForNewQualifiers;
+
 		if (!ignoreAssumes)
 		{
 			if (variable.Assume.OriginalRefinementString != "")
 			{
-				std::string refinementStringToUse = variable.Assume.ParsedRefinementString;
+				refinementPiecesForNewQualifiers = RefinementUtils::vectorAppend(refinementPiecesForNewQualifiers, variable.Assume.GetRefinementParts());
+
+				ParsedRefinement refinementToUse = variable.Assume;
 				if (!variableReplacements.empty())
 				{
-					refinementStringToUse = variable.Assume.ReplaceVariables(variableReplacements);
+					refinementToUse = variable.Assume.ReplaceVariables(variableReplacements);
 				}
 
-				std::vector<std::string> nonDependentConstraints = getNonDependentConstraints(refinementStringToUse);
-				variableConstraints = RefinementUtils::vectorAppend(variableConstraints, nonDependentConstraints);
+				std::vector<RefinementPiece> refinementPieces = refinementToUse.GetRefinementParts();
+				std::vector<std::string> refinementPiecesStr = RefinementUtils::selectString(refinementPieces, [](auto &refPiece) { return refPiece.RefinementPieceText; });
+				variableConstraints = RefinementUtils::vectorAppend(variableConstraints, refinementPiecesStr);
 			}
 		}
 
 		if (variable.Verify.OriginalRefinementString != "")
 		{
-			std::string refinementStringToUse = variable.Verify.ParsedRefinementString;
+			refinementPiecesForNewQualifiers = RefinementUtils::vectorAppend(refinementPiecesForNewQualifiers, variable.Verify.GetRefinementParts());
+
+			ParsedRefinement refinementToUse = variable.Verify;
 			if (!variableReplacements.empty())
 			{
-				refinementStringToUse = variable.Verify.ReplaceVariables(variableReplacements);
+				refinementToUse = variable.Verify.ReplaceVariables(variableReplacements);
 			}
 
-			std::vector<std::string> nonDependentConstraints = getNonDependentConstraints(refinementStringToUse);
-			variableConstraints = RefinementUtils::vectorAppend(variableConstraints, nonDependentConstraints);
+			std::vector<RefinementPiece> refinementPieces = refinementToUse.GetRefinementParts();
+			std::vector<std::string> refinementPiecesStr = RefinementUtils::selectString(refinementPieces, [](auto &refPiece) { return refPiece.RefinementPieceText; });
+			variableConstraints = RefinementUtils::vectorAppend(variableConstraints, refinementPiecesStr);
 		}
 
+		std::string currVarName = prefix + variable.LLVMName;
 		variableEnv.AddVariable(blockName, prefix + variable.LLVMName);
-		auto createBinderRes = constraintBuilder.CreateBinderWithQualifiers(prefix + variable.LLVMName, fixpointType, variableConstraints);
+
+		FixpointBaseType fixpointType;
+
+		auto convertResult = fixpointTypeConvertor.GetFixpointType(*(variable.LLVMType), fixpointType);
+		if (!convertResult.Succeeded) { return convertResult; }
+
+		auto createBinderRes = constraintBuilder.CreateBinderWithConstraints(currVarName, fixpointType, variableConstraints);
 		if (!createBinderRes.Succeeded) { return createBinderRes; }
+
+		for (const auto& refinementPiecesForNewQualifier : refinementPiecesForNewQualifiers)
+		{
+			std::vector<std::string> vars(refinementPiecesForNewQualifier.VariablesUsed.begin(), refinementPiecesForNewQualifier.VariablesUsed.end());
+			std::vector<FixpointBaseType> varTypes;
+			for (auto& var : vars)
+			{
+				if(!RefinementUtils::containsKey(variableTypes, var))
+				{
+					return ResultType::Error("Refinement Types: Could not find type for variable " + var);
+				}
+
+				varTypes.push_back(variableTypes.at(var));
+			}
+
+			vars.push_back("__value");
+			varTypes.push_back(fixpointType);
+
+			ResultType addQualRes = constraintBuilder.AddQualifierIfNew(currVarName + std::to_string(constraintBuilder.GetFreshNameSuffix()), varTypes, vars, refinementPiecesForNewQualifier.RefinementPieceText);
+			if (!addQualRes.Succeeded) { return addQualRes; }
+		}
 
 		return ResultType::Success();
 	}
@@ -108,9 +134,11 @@ namespace liquid {
 	)
 	{
 		std::map<std::string, std::string> variableReplacements;
+		std::map<std::string, FixpointBaseType> variableTypes;
 
+		std::vector<RefinementMetadataForVariable> paramsAndRet = RefinementUtils::vectorAppend(refinementData.Parameters, { refinementData.Return });
 		//Find variable renamings
-		for (auto& param : refinementData.Parameters)
+		for (auto& param : paramsAndRet)
 		{
 			const std::string originalVarName = param.OriginalName;
 			const std::string llvmVarName = prefix + param.LLVMName;
@@ -119,11 +147,17 @@ namespace liquid {
 			{
 				variableReplacements[originalVarName] = llvmVarName;
 			}
+
+			FixpointBaseType fixpointType;
+			auto convertResult = fixpointTypeConvertor.GetFixpointType(*(param.LLVMType), fixpointType);
+			if (!convertResult.Succeeded) { return convertResult; }
+
+			variableTypes[originalVarName] = fixpointType;
 		}
 
 		for (auto& param : refinementData.Parameters)
 		{
-			ResultType addConstraintRet = addConstraintsForVariable(param, prefix, blockName, ignoreParameterAssumes /* ignoreAssumes */, variableReplacements);
+			ResultType addConstraintRet = addConstraintsForVariable(param, prefix, blockName, ignoreParameterAssumes /* ignoreAssumes */, variableReplacements, variableTypes);
 			if (!addConstraintRet.Succeeded)
 			{
 				return addConstraintRet;
@@ -132,7 +166,7 @@ namespace liquid {
 
 		//assumes of the return type can be ignored here (it will be used at call sites of this functions) 
 		//as there is nothing to check and we can't use this information to help verification of this function
-		ResultType addConstraintRet = addConstraintsForVariable(refinementData.Return, prefix, blockName, ignoreReturnAssumes /* ignoreAssumes */, variableReplacements);
+		ResultType addConstraintRet = addConstraintsForVariable(refinementData.Return, prefix, blockName, ignoreReturnAssumes /* ignoreAssumes */, variableReplacements, variableTypes);
 		if (!addConstraintRet.Succeeded)
 		{
 			return addConstraintRet;

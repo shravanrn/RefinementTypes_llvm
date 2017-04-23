@@ -179,7 +179,7 @@ namespace liquid {
 		return ResultType::Success();
 	}
 
-	ResultType FixpointConstraintBuilder::CreateBinderWithQualifiers(std::string name, FixpointBaseType type, std::vector<std::string> binderQualifiers)
+	ResultType FixpointConstraintBuilder::CreateBinderWithConstraints(std::string name, FixpointBaseType type, std::vector<std::string> binderQualifiers)
 	{
 		if (binderNameMapping.find(name) != binderNameMapping.end())
 		{
@@ -204,14 +204,6 @@ namespace liquid {
 		else
 		{
 			binderId = getFreshBinderId();
-		}
-
-		unsigned int i = 0;
-		for (auto& qualifier : binderQualifiers)
-		{
-			std::string fullname = name + "_" + std::to_string(i);
-			AddQualifierIfNew(fullname, { type }, { "__value" }, qualifier);
-			i++;
 		}
 
 		auto binder = std::make_unique<Binder>(binderId, name, type, binderQualifiers);

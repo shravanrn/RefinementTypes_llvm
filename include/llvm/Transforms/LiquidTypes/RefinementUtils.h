@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <functional>
 
 namespace liquid {
 
@@ -49,6 +50,18 @@ namespace liquid {
 			auto it = m.find(key);
 			bool found = (it != m.end());
 			return found;
+		}
+
+		template<typename T1, typename T2>
+		static auto selectString(const std::vector<T1>& source, T2 projectFunc)
+		{
+			std::vector<std::string> ret;
+			for (auto& el : source)
+			{
+				ret.push_back(projectFunc(el));
+			}
+
+			return ret;
 		}
 	};
 }

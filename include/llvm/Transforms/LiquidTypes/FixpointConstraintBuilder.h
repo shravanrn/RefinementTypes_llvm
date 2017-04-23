@@ -113,7 +113,7 @@ namespace liquid {
 		ResultType AddQualifierIfNew(std::string name, std::vector<FixpointBaseType> paramTypes, std::vector<std::string> paramNames, std::string qualifierString);
 		bool DoesBinderExist(std::string name);
 		ResultType CreateBinder(std::string name, FixpointBaseType type, std::vector<std::string> environmentBinders, std::vector<std::string> binderInformation);
-		ResultType CreateBinderWithQualifiers(std::string name, FixpointBaseType type, std::vector<std::string> binderQualifiers);
+		ResultType CreateBinderWithConstraints(std::string name, FixpointBaseType type, std::vector<std::string> binderQualifiers);
 		//Create a binder `name` while checking that this binder is created normally by a subsequent call to CreateBinder or CreateBinderWithQualifiers
 		ResultType CreateFutureBinder(std::string name, FixpointBaseType type);
 		ResultType AddBinderInformation(std::string name, std::string binderName, std::vector<std::string> binderQualifiers);
