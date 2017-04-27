@@ -1,6 +1,6 @@
 #include "llvm/Transforms/LiquidTypes/RefinementInstructionConstraintGenerator.h"
 #include "llvm/Transforms/LiquidTypes/RefinementUtils.h"
-#include "llvm/Transforms/LiquidTypes/RefinementFunctionInfo.h"
+#include "llvm/Transforms/LiquidTypes/RefinementFunctionSignatureInfo.h"
 #include "llvm/IR/Constants.h"
 
 using namespace std::literals::string_literals;
@@ -550,7 +550,7 @@ namespace liquid {
 	//Thus all we have to do is create assignments from
 	//x to pre_a
 	//and pre_ret to y
-	ResultType RefinementInstructionConstraintGenerator::CaptureCallInstructionConstraint(const std::string& blockName, const CallInst& callInst, const std::string& callVariablesPrefixUsed, const RefinementFunctionInfo* callRefFunctionInfo)
+	ResultType RefinementInstructionConstraintGenerator::CaptureCallInstructionConstraint(const std::string& blockName, const CallInst& callInst, const std::string& callVariablesPrefixUsed, const RefinementFunctionSignatureInfo* callRefFunctionInfo)
 	{
 		auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
 		auto variablesInfo = variableEnv.GetVariablesInfo(blockName);

@@ -18,6 +18,9 @@ namespace liquid {
 
 	void runRefinementPass(const Function &F, const RefinementFunctionInfo& refinementInfo)
 	{
+		//nothing to check if it is just a function declaration
+		if (F.isDeclaration()) { return; }
+
 		if (refinementInfo.RefinementDataFound)
 		{
 			std::string constraints;

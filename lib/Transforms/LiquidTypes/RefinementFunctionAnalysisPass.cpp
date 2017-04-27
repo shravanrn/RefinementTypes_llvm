@@ -1,4 +1,5 @@
 #include "llvm/Transforms/LiquidTypes/RefinementFunctionAnalysisPass.h"
+#include "llvm/Transforms/LiquidTypes/RefinementFunctionSignatureAnalysisPass.h"
 #include "llvm/Transforms/LiquidTypes/ResultType.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -22,30 +23,28 @@ namespace llvm {
 			r.RefinementDataFound = true;
 
 			{
-				ResultType getRefData = RefinementMetadata_Raw::Extract(F, r.FnRefinementMetadata_Raw);
-				if (!getRefData.Succeeded) { report_fatal_error(getRefData.ErrorMsg); }
+				r.SignatureMetadata = analysisRetriever.GetAnalysisForFunction(F);
 			}
-
+			
+			//if we have the function body
+			if (!F.isDeclaration())
 			{
-				ResultType getRefData = RefinementMetadata::ParseMetadata(r.FnRefinementMetadata_Raw, r.ParsedFnRefinementMetadata);
-				if (!getRefData.Succeeded) { report_fatal_error(getRefData.ErrorMsg); }
-			}
+				r.ConstraintGenerator = std::make_unique<RefinementConstraintGenerator>(F, dominatorTree);
 
-			r.ConstraintGenerator = std::make_unique<RefinementConstraintGenerator>(F, dominatorTree);
+				{
+					ResultType constraintRes = r.ConstraintGenerator->BuildConstraintsFromSignature(r.SignatureMetadata->ParsedFnRefinementMetadata);
+					if (!constraintRes.Succeeded) { report_fatal_error(constraintRes.ErrorMsg); }
+				}
 
-			{
-				ResultType constraintRes = r.ConstraintGenerator->BuildConstraintsFromSignature(r.ParsedFnRefinementMetadata);
-				if (!constraintRes.Succeeded) { report_fatal_error(constraintRes.ErrorMsg); }
-			}
+				{
+					ResultType constraintRes = r.ConstraintGenerator->BuildConstraintsFromInstructions(r.SignatureMetadata->ParsedFnRefinementMetadata, analysisRetriever);
+					if (!constraintRes.Succeeded) { report_fatal_error(constraintRes.ErrorMsg); }
+				}
 
-			{
-				ResultType constraintRes = r.ConstraintGenerator->BuildConstraintsFromInstructions(r.ParsedFnRefinementMetadata, analysisRetriever);
-				if (!constraintRes.Succeeded) { report_fatal_error(constraintRes.ErrorMsg); }
-			}
-
-			{
-				ResultType constraintRes = r.ConstraintGenerator->CaptureLoopConstraints(loopInfo);
-				if (!constraintRes.Succeeded) { report_fatal_error(constraintRes.ErrorMsg); }
+				{
+					ResultType constraintRes = r.ConstraintGenerator->CaptureLoopConstraints(loopInfo);
+					if (!constraintRes.Succeeded) { report_fatal_error(constraintRes.ErrorMsg); }
+				}
 			}
 		}
 	}
@@ -54,34 +53,57 @@ namespace llvm {
 	INITIALIZE_PASS_BEGIN(RefinementFunctionAnalysisPass, "refinementAnalysis", "Refinement constraints Construction", true, true)
 	INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 	INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+	INITIALIZE_PASS_DEPENDENCY(RefinementFunctionSignatureAnalysisPass)
 	INITIALIZE_PASS_END(RefinementFunctionAnalysisPass, "refinementAnalysis", "Refinement constraints Construction", true, true)
 
-	bool RefinementFunctionAnalysisPass::runOnFunction(Function &F) {
-		auto& dominatorTree = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-		auto& loopInfo = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-		std::string key = F.getName().str();
-		RI[key] = RefinementFunctionInfo();
+	bool RefinementFunctionAnalysisPass::runOnModule(Module &M) {
+		std::map<std::string, RefinementFunctionSignatureInfo> sigInfo;
 
-		AnalysisRetriever analysisRetriever(&RI);
-		runRefinementAnalysis(F, dominatorTree, loopInfo, analysisRetriever, RI[key]);
+		for (auto& F : M.functions())
+		{
+			sigInfo = getAnalysis<RefinementFunctionSignatureAnalysisPass>(F).getRefinementInfo();
+		}
 
+		for (auto& F : M.functions())
+		{
+			auto& dominatorTree = getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
+			auto& loopInfo = getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+
+			std::string key = F.getName().str();
+			RI[key] = RefinementFunctionInfo();
+
+			auto retrieverFunc = [&sigInfo](llvm::Function& f) {
+				std::string key = f.getName().str();
+				return &(sigInfo.at(key));
+			};
+
+			AnalysisRetriever analysisRetriever(retrieverFunc);
+			runRefinementAnalysis(F, dominatorTree, loopInfo, analysisRetriever, RI[key]);
+		}
 		return false;
 	}
 
 	void RefinementFunctionAnalysisPass::getAnalysisUsage(AnalysisUsage &AU) const {
 		AU.addRequired<DominatorTreeWrapperPass>();
 		AU.addRequired<LoopInfoWrapperPass>();
+		AU.addRequired<RefinementFunctionSignatureAnalysisPass>();
 		AU.setPreservesAll();
 	}
 
 	AnalysisKey RefinementFunctionAnalysis::Key;
+
 	RefinementFunctionInfo RefinementFunctionAnalysis::run(Function &F, FunctionAnalysisManager &AM)
 	{
 		RefinementFunctionInfo r;
 		auto& dominatorTree = AM.getResult<DominatorTreeAnalysis>(F);
 		auto& loopInfo = AM.getResult<LoopAnalysis>(F);
+		auto refinementSignatureInfo = AM.getResult<RefinementFunctionSignatureAnalysis>(F);
 
-		AnalysisRetriever analysisRetriever(&AM, &F, &r);
+		auto retrieverFunc = [&AM](llvm::Function& f) {
+			return &(AM.getResult<RefinementFunctionSignatureAnalysis>(f));
+		};
+
+		AnalysisRetriever analysisRetriever(retrieverFunc);
 		runRefinementAnalysis(F, dominatorTree, loopInfo, analysisRetriever, r);
 
 		return r;

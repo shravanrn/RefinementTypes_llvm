@@ -5,6 +5,7 @@ add_llvm_library(LLVMTransformLiquidTypes
   FixpointManager.cpp
   RefinementUtils.cpp
   RefinementFunctionAnalysisPass.cpp
+  RefinementFunctionSignatureAnalysisPass.cpp
   RefinementMetadata_Raw.cpp
   RefinementMetadata.cpp
   RefinementConstraintGenerator.cpp

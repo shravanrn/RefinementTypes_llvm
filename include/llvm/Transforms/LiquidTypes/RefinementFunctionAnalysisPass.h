@@ -10,20 +10,19 @@ using namespace liquid;
 
 namespace llvm {
 
-	class RefinementFunctionAnalysisPass : public FunctionPass {
+	class RefinementFunctionAnalysisPass : public ModulePass {
 		std::map<std::string, RefinementFunctionInfo> RI;
 	public:
 		static char ID; // Pass identification, replacement for typeid
 
-		RefinementFunctionAnalysisPass() : FunctionPass(ID) {
+		RefinementFunctionAnalysisPass() : ModulePass(ID) {
 			initializeRefinementFunctionAnalysisPassPass(*PassRegistry::getPassRegistry());
 		}
 
 		std::map<std::string, RefinementFunctionInfo> &getRefinementInfo() { return RI; }
 		const std::map<std::string, RefinementFunctionInfo> &getRefinementInfo() const { return RI; }
 
-		/// \brief Calculate the natural loop information for a given function.
-		bool runOnFunction(Function &F) override;
+		bool runOnModule(Module &M) override;
 
 		void getAnalysisUsage(AnalysisUsage &AU) const override;
 	};

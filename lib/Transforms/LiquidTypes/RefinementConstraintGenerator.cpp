@@ -180,15 +180,9 @@ namespace liquid {
 		return buildConstraintsFromSignatureForBlock(refinementData, "" /* prefix */, "entry", false /* ignoreParameterAssumes */, true /* ignoreReturnAssumes */);
 	}
 
-	ResultType RefinementConstraintGenerator::generateCallSignatureVariables(const std::string& blockName, const CallInst& callInst, const AnalysisRetriever& analysisRetriever, std::string& prefixUsed, const RefinementFunctionInfo* &callFunctionInfo)
+	ResultType RefinementConstraintGenerator::generateCallSignatureVariables(const std::string& blockName, const CallInst& callInst, const AnalysisRetriever& analysisRetriever, std::string& prefixUsed, const RefinementFunctionSignatureInfo* &callFunctionInfo)
 	{
 		auto callFnName = callInst.getCalledFunction();
-
-		if (!analysisRetriever.ContainsAnalysisForFunction(*callFnName))
-		{
-			return ResultType::Error("Refinement Types: Not all function calls are supported currently");
-		}
-
 		callFunctionInfo = analysisRetriever.GetAnalysisForFunction(*callFnName);
 
 		auto opRegisterName = callInst.getName().str();
@@ -241,7 +235,7 @@ namespace liquid {
 				else if (auto callInst = dyn_cast<CallInst>(&instr))
 				{
 					std::string prefixUsed;
-					const RefinementFunctionInfo* callRefFunctionInfo;
+					const RefinementFunctionSignatureInfo* callRefFunctionInfo;
 					{
 						ResultType res = generateCallSignatureVariables(blockName, *callInst, analysisRetriever, prefixUsed, callRefFunctionInfo);
 						if (!res.Succeeded) { return res; }

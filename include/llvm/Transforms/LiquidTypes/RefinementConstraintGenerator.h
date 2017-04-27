@@ -16,7 +16,7 @@ using namespace llvm;
 namespace liquid {
 
 	class AnalysisRetriever;
-	class RefinementFunctionInfo;
+	class RefinementFunctionSignatureInfo;
 
 	class RefinementConstraintGenerator
 	{
@@ -31,7 +31,7 @@ namespace liquid {
 		ResultType registerAndRetrieveIntegerQualifiers(const llvm::IntegerType& type, std::vector<std::string>& constraints);
 		ResultType addConstraintsForVariable(const RefinementMetadataForVariable& variable, const std::string& prefix, const std::string& blockName, const bool ignoreAssumes, const std::map<std::string, std::string>& variableReplacements, const std::map<std::string, FixpointBaseType>& variableTypes);
 		ResultType buildConstraintsFromSignatureForBlock(const RefinementMetadata& refinementData, const std::string& prefix, const std::string& blockName, const bool ignoreParameterAssumes, const bool ignoreReturnAssumes);
-		ResultType generateCallSignatureVariables(const std::string& blockName, const CallInst& callInst, const AnalysisRetriever& analysisRetriever, std::string& prefixUsed, const RefinementFunctionInfo* &callFunctionInfo);
+		ResultType generateCallSignatureVariables(const std::string& blockName, const CallInst& callInst, const AnalysisRetriever& analysisRetriever, std::string& prefixUsed, const RefinementFunctionSignatureInfo* &callFunctionInfo);
 
 	public:
 		RefinementConstraintGenerator(const Function &F, const DominatorTree& dominatorTree) : Func(F), variableEnv(F, dominatorTree), instructionConstraintBuilder(constraintBuilder, fixpointTypeConvertor, variableEnv) {}
