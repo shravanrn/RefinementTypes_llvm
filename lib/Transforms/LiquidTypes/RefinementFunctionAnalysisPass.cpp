@@ -1,6 +1,7 @@
 #include "llvm/Transforms/LiquidTypes/RefinementFunctionAnalysisPass.h"
 #include "llvm/Transforms/LiquidTypes/RefinementFunctionSignatureAnalysisPass.h"
 #include "llvm/Transforms/LiquidTypes/ResultType.h"
+#include "llvm/Transforms/LiquidTypes/RefinementUtils.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Transforms/LiquidTypes/AnalysisRetriever.h"
@@ -23,6 +24,7 @@ namespace llvm {
 			r.RefinementDataFound = true;
 
 			{
+				if (!analysisRetriever.ContainsAnalysisForFunction(F)) { report_fatal_error("Refinement Types : Expected to find signature analysis"); }
 				r.SignatureMetadata = analysisRetriever.GetAnalysisForFunction(F);
 			}
 			
@@ -72,12 +74,17 @@ namespace llvm {
 			std::string key = F.getName().str();
 			RI[key] = RefinementFunctionInfo();
 
+			auto containsFunc = [&sigInfo](llvm::Function& f) {
+				std::string key = f.getName().str();
+				return RefinementUtils::containsKey(sigInfo, key);
+			};
+
 			auto retrieverFunc = [&sigInfo](llvm::Function& f) {
 				std::string key = f.getName().str();
 				return &(sigInfo.at(key));
 			};
 
-			AnalysisRetriever analysisRetriever(retrieverFunc);
+			AnalysisRetriever analysisRetriever(containsFunc, retrieverFunc);
 			runRefinementAnalysis(F, dominatorTree, loopInfo, analysisRetriever, RI[key]);
 		}
 		return false;
@@ -99,11 +106,16 @@ namespace llvm {
 		auto& loopInfo = AM.getResult<LoopAnalysis>(F);
 		auto refinementSignatureInfo = AM.getResult<RefinementFunctionSignatureAnalysis>(F);
 
+		auto containsFunc = [&AM](llvm::Function& f) {
+			std::string key = f.getName().str();
+			return AM.getCachedResult<RefinementFunctionSignatureAnalysis>(f) != nullptr;
+		};
+
 		auto retrieverFunc = [&AM](llvm::Function& f) {
 			return &(AM.getResult<RefinementFunctionSignatureAnalysis>(f));
 		};
 
-		AnalysisRetriever analysisRetriever(retrieverFunc);
+		AnalysisRetriever analysisRetriever(containsFunc, retrieverFunc);
 		runRefinementAnalysis(F, dominatorTree, loopInfo, analysisRetriever, r);
 
 		return r;

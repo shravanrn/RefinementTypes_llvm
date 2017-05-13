@@ -182,12 +182,18 @@ namespace liquid {
 
 	ResultType RefinementConstraintGenerator::generateCallSignatureVariables(const std::string& blockName, const CallInst& callInst, const AnalysisRetriever& analysisRetriever, std::string& prefixUsed, const RefinementFunctionSignatureInfo* &callFunctionInfo)
 	{
-		auto callFnName = callInst.getCalledFunction();
-		callFunctionInfo = analysisRetriever.GetAnalysisForFunction(*callFnName);
+		auto callFn = callInst.getCalledFunction();
 
-		auto opRegisterName = callInst.getName().str();
-		prefixUsed = opRegisterName + "_";
-		return buildConstraintsFromSignatureForBlock(callFunctionInfo->ParsedFnRefinementMetadata, prefixUsed, blockName, true /* ignoreParameterAssumes */, false /* ignoreReturnAssumes */);
+		if (analysisRetriever.ContainsAnalysisForFunction(*callFn))
+		{
+			callFunctionInfo = analysisRetriever.GetAnalysisForFunction(*callFn);
+
+			auto opRegisterName = callInst.getName().str();
+			prefixUsed = opRegisterName + "_";
+			return buildConstraintsFromSignatureForBlock(callFunctionInfo->ParsedFnRefinementMetadata, prefixUsed, blockName, true /* ignoreParameterAssumes */, false /* ignoreReturnAssumes */);
+		}
+
+		return ResultType::Success();
 	}
 
 	ResultType RefinementConstraintGenerator::BuildConstraintsFromInstructions(const RefinementMetadata& refinementData, const AnalysisRetriever& analysisRetriever)

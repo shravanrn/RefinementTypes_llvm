@@ -8,9 +8,15 @@ namespace liquid {
 
 	class AnalysisRetriever
 	{
+		const std::function<bool(llvm::Function&)> ContainsAnalysisFunc;
 		const std::function<RefinementFunctionSignatureInfo*(llvm::Function&)> GetAnalysisFunc;
 	public:
-		AnalysisRetriever(const std::function<RefinementFunctionSignatureInfo*(llvm::Function&)> getAnalysisFunc) : GetAnalysisFunc(getAnalysisFunc) {}
+		AnalysisRetriever(
+			std::function<bool(llvm::Function&)> containsAnalysisFunc,
+			const std::function<RefinementFunctionSignatureInfo*(llvm::Function&)> getAnalysisFunc
+		) : ContainsAnalysisFunc(containsAnalysisFunc), GetAnalysisFunc(getAnalysisFunc) {}
+
+		const bool ContainsAnalysisForFunction(llvm::Function& function) const;
 		const RefinementFunctionSignatureInfo* GetAnalysisForFunction(llvm::Function& function) const;
 	};
 }
