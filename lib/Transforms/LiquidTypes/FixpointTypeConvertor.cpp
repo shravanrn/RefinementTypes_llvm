@@ -10,6 +10,6 @@ namespace liquid
 			return ResultType::Success();
 		}
 
-		return ResultType::Error("Refinement Types: cannot convert type - " + llvmType.getStructName().str() + " to fixpoint type");
+		return ResultType::Error("Refinement Types: cannot convert type - to fixpoint type");
 	}
 }

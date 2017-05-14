@@ -44,6 +44,9 @@ namespace liquid {
 		ResultType CapturePhiInstructionConstraint(const std::string& blockName, const PHINode& phiInst);
 		ResultType CaptureSelectInstructionConstraint(const std::string& blockName, const SelectInst& selectInst);
 		ResultType CaptureCallInstructionConstraint(const std::string& blockName, const CallInst& callInst, const std::string& callVariablesPrefixUsed, const RefinementFunctionSignatureInfo* callRefFunctionInfo);
+		ResultType CaptureAllocaInstructionConstraint(const std::string& blockName, const AllocaInst& allocaInst);
+		ResultType CaptureStoreInstructionConstraint(const std::string& blockName, const StoreInst& storeInst);
+		ResultType CaptureLoadInstructionConstraint(const std::string& blockName, const LoadInst& loadInst);
 	};
 }
 

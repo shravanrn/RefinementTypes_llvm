@@ -250,6 +250,27 @@ namespace liquid {
 					ResultType res = instructionConstraintBuilder.CaptureCallInstructionConstraint(blockName, *callInst, prefixUsed, callRefFunctionInfo);
 					if (!res.Succeeded) { return res; }
 				}
+				else if (auto allocaInst = dyn_cast<AllocaInst>(&instr))
+				{
+					ResultType ptrConstraints = capturePtrConstraints();
+					if (!ptrConstraints.Succeeded) { return ptrConstraints; }
+
+					ResultType res = instructionConstraintBuilder.CaptureAllocaInstructionConstraint(blockName, *allocaInst);
+					if (!res.Succeeded) { return res; }
+				}
+				else if (auto storeInst = dyn_cast<StoreInst>(&instr))
+				{
+					ResultType res = instructionConstraintBuilder.CaptureStoreInstructionConstraint(blockName, *storeInst);
+					if (!res.Succeeded) { return res; }
+				}
+				else if (auto loadInst = dyn_cast<LoadInst>(&instr))
+				{
+					ResultType ptrConstraints = capturePtrConstraints();
+					if (!ptrConstraints.Succeeded) { return ptrConstraints; }
+
+					ResultType res = instructionConstraintBuilder.CaptureLoadInstructionConstraint(blockName, *loadInst);
+					if (!res.Succeeded) { return res; }
+				}
 				else
 				{
 					return ResultType::Error("Unknown instruction type "s + instr.getOpcodeName());
@@ -273,6 +294,12 @@ namespace liquid {
 		}
 
 		return ResultType::Success();
+	}
+
+	ResultType RefinementConstraintGenerator::capturePtrConstraints()
+	{
+		ResultType addQualRes = constraintBuilder.AddUninterpretedFunctionDefinitionIfNew("deref"s, { "@(0)"s }, "@(1)"s);
+		return addQualRes;
 	}
 
 	ResultType RefinementConstraintGenerator::ToString(std::string& output)

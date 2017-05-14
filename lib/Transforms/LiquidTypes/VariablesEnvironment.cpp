@@ -48,6 +48,23 @@ namespace liquid
 		variablesInfo[blockName].emplace(infoName);
 	}
 
+	void VariablesEnvironment::AddVariableInfo(std::string blockName, std::string infoGroupName, std::string infoName)
+	{
+		if (RefinementUtils::containsKey(variablesGroupInfo, infoGroupName))
+		{
+			auto& existingGroupInfos = variablesGroupInfo[infoGroupName];
+			for (auto& existingInfo : existingGroupInfos)
+			{
+				variablesInfo[blockName].erase(existingInfo);
+			}
+
+			existingGroupInfos.clear();
+		}
+
+		variablesGroupInfo[infoGroupName].emplace(infoName);
+		variablesInfo[blockName].emplace(infoName);
+	}
+
 	std::vector<std::string> VariablesEnvironment::GetVariablesInScope(const std::string blockName)
 	{
 		auto ret = getStringsInScope(blockName, variables);
@@ -58,5 +75,16 @@ namespace liquid
 	{
 		auto ret = getStringsInScope(blockName, variablesInfo);
 		return ret;
+	}
+
+	void VariablesEnvironment::AddInstructionName(const llvm::Instruction& instr, const std::string& variableName)
+	{
+		instructionNames[&instr] = variableName;
+	}
+
+	std::string VariablesEnvironment::GetInstructionName(const llvm::Instruction& instr)
+	{
+		assert(RefinementUtils::containsKey(instructionNames, &instr));
+		return instructionNames[&instr];
 	}
 }

@@ -32,6 +32,13 @@ namespace liquid {
 		return copy;
 	}
 
+	unsigned int FixpointConstraintBuilder::getFreshFunctionId()
+	{
+		auto copy = freshFunctionId;
+		freshFunctionId++;
+		return copy;
+	}
+
 	ResultType FixpointConstraintBuilder::getEnvironmentBinderIds(const std::map<std::string, Binder*>& source, const std::vector<std::string>& names, std::vector<unsigned int>& environmentBinderReferences)
 	{
 		for (auto& name : names)
@@ -261,6 +268,30 @@ namespace liquid {
 		return ResultType::Success();
 	}
 
+	ResultType FixpointConstraintBuilder::AddTemporaryBinderInformation(std::string name, std::string binderName, FixpointBaseType type, std::vector<std::string> binderQualifiers)
+	{
+		if (binderInformationNameMapping.find(name) != binderInformationNameMapping.end())
+		{
+			return ResultType::Error("Multiple binder infomation records with name " + name);
+		}
+
+		auto binderInfoId = getFreshBinderId();
+
+		unsigned int i = 0;
+		for (auto& qualifier : binderQualifiers)
+		{
+			std::string fullname = name + "_" + std::to_string(i);
+			AddQualifierIfNew(fullname, { type }, { "__value" }, qualifier);
+			i++;
+		}
+
+		auto binderInfo = std::make_unique<Binder>(binderInfoId, binderName, type, binderQualifiers);
+		binderInformationNameMapping[name] = binderInfo.get();
+		binderInformation.push_back(std::move(binderInfo));
+
+		return ResultType::Success();
+	}
+
 	ResultType FixpointConstraintBuilder::AddConstraintForAssignment(std::string constraintName, std::string targetName, std::string assignedExpression, std::vector<std::string> environmentBinders, std::vector<std::string> futureBinders, std::vector<std::string> binderInformation)
 	{
 		auto constraintId = getFreshConstraintId();
@@ -292,6 +323,19 @@ namespace liquid {
 		auto constraint = std::make_unique<Constraint>(constraintId, constraintName, targetBinder->Type, qualifiers, targetBinder->Qualifiers, allBinderIds);
 		constraintNameMapping[constraintName] = constraint.get();
 		constraints.push_back(std::move(constraint));
+
+		return ResultType::Success();
+	}
+
+	ResultType FixpointConstraintBuilder::AddUninterpretedFunctionDefinitionIfNew(std::string functionName, std::vector<std::string> parameterTypes, std::string returnType)
+	{
+		if (!RefinementUtils::containsKey(uninterpretedFunctionsNameMapping, functionName))
+		{
+			auto functionId = getFreshFunctionId();
+			auto functionInfo = std::make_unique<UninterpretedFunction>(functionId, functionName, parameterTypes, returnType);
+			uninterpretedFunctionsNameMapping[functionName] = functionInfo.get();
+			uninterpretedFunctions.push_back(std::move(functionInfo));
+		}
 
 		return ResultType::Success();
 	}
@@ -342,6 +386,25 @@ namespace liquid {
 			outputBuff << "): ("
 				<< modifiedQualifierString
 				<< ")\n";
+		}
+
+		outputBuff << "\n";
+
+		for (auto& uninterpretedFunction : uninterpretedFunctions)
+		{
+			outputBuff << "constant "
+				<< uninterpretedFunction->Name
+				<< " : func("
+				<< uninterpretedFunction->Id
+				<< ", [";
+
+			for (auto& uFParam : uninterpretedFunction->ParameterTypes)
+			{
+				outputBuff << uFParam << "; ";
+			}
+
+			outputBuff << uninterpretedFunction->ReturnType
+				<< "])\n";
 		}
 
 		outputBuff << "\n";

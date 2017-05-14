@@ -22,6 +22,11 @@ namespace liquid {
 			binderName = value.getName().str();
 			return ResultType::Success();
 		}
+		else if (auto loadInstVal = dyn_cast<llvm::LoadInst>(&value))
+		{
+			binderName = variableEnv.GetInstructionName(*loadInstVal);
+			return ResultType::Success();
+		}
 		else if (auto constantVal = dyn_cast<llvm::ConstantInt>(&value))
 		{
 			std::string constValue = constantVal->getValue().toString(10 /* radix */, false /* unsigned */);
@@ -50,7 +55,7 @@ namespace liquid {
 			return ResultType::Success();
 		}
 
-		return ResultType::Error("Refinement Types: unknown constant type" + value.getType()->getStructName().str());
+		return ResultType::Error("Refinement Types: unknown constant type");
 	}
 
 	std::string RefinementInstructionConstraintGenerator::getSignedIntFromUnsignedRepresentation(const std::string& unsignedValStr, unsigned int width)
@@ -188,7 +193,7 @@ namespace liquid {
 		}
 		else
 		{
-			return ResultType::Error("RefinementTypes: Binary operators not supported for type - " + retType->getStructName().str());
+			return ResultType::Error("RefinementTypes: Binary operators not supported for type - " );
 		}
 
 		return ResultType::Success();
@@ -602,4 +607,119 @@ namespace liquid {
 		return ResultType::Success();
 	}
 
+	ResultType RefinementInstructionConstraintGenerator::CaptureAllocaInstructionConstraint(const std::string& blockName, const AllocaInst& allocaInst)
+	{
+		std::string allocName = allocaInst.getName().str();
+		auto targetPtrLLVMType = allocaInst.getType();
+
+		if (!targetPtrLLVMType->isPointerTy())
+		{
+			return ResultType::Error("Expected pointer type in alloc");
+		}
+
+		auto targetLLVMType = targetPtrLLVMType->getPointerElementType();
+
+		FixpointBaseType targetFixpointType;
+		{
+			auto convertResult = fixpointTypeConvertor.GetFixpointType(*targetLLVMType, targetFixpointType);
+			if (!convertResult.Succeeded) { return convertResult; }
+		}
+
+		std::string uniqueBinderName = "__"s + allocName + std::to_string(constraintBuilder.GetFreshNameSuffix());
+		std::string tempInitValueName = "__" + allocName;
+		{
+			variableEnv.AddVariable(blockName, tempInitValueName);
+			auto createBinderRes = constraintBuilder.CreateBinderWithConstraints(tempInitValueName, targetFixpointType, { "true" });
+			if (!createBinderRes.Succeeded) { return createBinderRes; }
+		}
+
+		{
+			auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
+			auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
+
+			//add a temporary binder
+			std::string uniqueTempName = allocName + std::to_string(constraintBuilder.GetFreshNameSuffix());
+			auto tempBinderRes = constraintBuilder.AddTemporaryBinderInformation(uniqueTempName, allocName, targetFixpointType, { "true" });
+			if (!tempBinderRes.Succeeded) { return tempBinderRes; }
+			variablesInfo.push_back(uniqueTempName);
+
+			auto createBinderRes = constraintBuilder.CreateBinder(allocName, targetFixpointType, variablesInScope, variablesInfo);
+			if (!createBinderRes.Succeeded) { return createBinderRes; }
+
+			//update the variables in scope as we have created a new binder
+			variablesInScope = variableEnv.GetVariablesInScope(blockName);
+
+			std::string constraint = "deref("s + allocName + ") = "s + tempInitValueName;
+			std::string constraintName = allocName + "_init_val";
+
+			auto addConstraintRes = constraintBuilder.AddConstraintForAssignment(constraintName, allocName, constraint, variablesInScope, {}, variablesInfo);
+			if (!addConstraintRes.Succeeded) { return addConstraintRes; }
+			variableEnv.AddVariable(blockName, allocName);
+		}
+
+		return ResultType::Success();
+	}
+
+	ResultType RefinementInstructionConstraintGenerator::CaptureStoreInstructionConstraint(const std::string& blockName, const StoreInst& storeInst)
+	{
+		std::string storeSourceName = storeInst.getValueOperand()->getName().str();
+		std::string storeTargetName = storeInst.getPointerOperand()->getName().str();
+		auto targetLLVMType = storeInst.getValueOperand()->getType();
+
+		FixpointBaseType targetFixpointType;
+		{
+			auto convertResult = fixpointTypeConvertor.GetFixpointType(*targetLLVMType, targetFixpointType);
+			if (!convertResult.Succeeded) { return convertResult; }
+		}
+
+		std::string uniqueBinderName = "__"s + storeTargetName + std::to_string(constraintBuilder.GetFreshNameSuffix());
+		std::string tempInitValueName = "__" + storeTargetName;
+		{
+			auto createBinderRes = constraintBuilder.AddBinderInformation(uniqueBinderName, tempInitValueName, { "__value == " + storeSourceName });
+			if (!createBinderRes.Succeeded) { return createBinderRes; }
+
+			variableEnv.AddVariableInfo(blockName, storeTargetName, uniqueBinderName);
+		}
+
+		return ResultType::Success();
+	}
+
+	ResultType RefinementInstructionConstraintGenerator::CaptureLoadInstructionConstraint(const std::string& blockName, const LoadInst& loadInst)
+	{
+		std::string regName = loadInst.getName().str();
+		if (regName == "")
+		{
+			regName = "__tempName" + std::to_string(constraintBuilder.GetFreshNameSuffix());
+			variableEnv.AddInstructionName(loadInst, regName);
+		}
+		
+		std::string loadSourceName = loadInst.getPointerOperand()->getName().str();
+
+		auto targetLLVMType = loadInst.getType();
+		FixpointBaseType targetFixpointType;
+		{
+			auto convertResult = fixpointTypeConvertor.GetFixpointType(*targetLLVMType, targetFixpointType);
+			if (!convertResult.Succeeded) { return convertResult; }
+		}
+
+		{
+			auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
+			auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
+			variableEnv.AddVariable(blockName, regName);
+
+			auto createBinderRes = constraintBuilder.CreateBinder(regName, targetFixpointType, variablesInScope, variablesInfo);
+			if (!createBinderRes.Succeeded) { return createBinderRes; }
+		}
+		{
+			std::string constraintName = regName + "_load"s;
+			std::string assignedExpr = "__value == deref("s + loadSourceName + ")"s;
+
+			auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
+			auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
+
+			auto createBinderRes = constraintBuilder.AddConstraintForAssignment(constraintName, regName, assignedExpr, variablesInScope, {}, variablesInfo);
+			if (!createBinderRes.Succeeded) { return createBinderRes; }
+		}
+		return ResultType::Success();
+	}
 }

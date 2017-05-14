@@ -68,6 +68,19 @@ namespace liquid {
 			std::vector<unsigned int> binderReferences) : Id(id), Type(type), BinderReferences(binderReferences) {}
 	};
 
+	class UninterpretedFunction {
+	public:
+		const unsigned int Id;
+		const std::string Name;
+		const std::vector<std::string> ParameterTypes;
+		const std::string ReturnType;
+
+		UninterpretedFunction(unsigned int id,
+			std::string name,
+			std::vector<std::string> parameterTypes,
+			std::string returnType) : Id(id), Name(name), ParameterTypes(parameterTypes), ReturnType(returnType) {}
+	};
+
 	class FixpointConstraintBuilder {
 	private:
 
@@ -105,6 +118,11 @@ namespace liquid {
 		std::map<std::string, Constraint*> constraintNameMapping;
 		std::vector<std::unique_ptr<Constraint>> constraints;
 
+		unsigned int freshFunctionId = 0;
+		unsigned int getFreshFunctionId();
+		std::map<std::string, UninterpretedFunction*> uninterpretedFunctionsNameMapping;
+		std::vector<std::unique_ptr<UninterpretedFunction>> uninterpretedFunctions;
+
 		//used by the user of this class to create a unique name at any time
 		unsigned int freshNameState = 0;
 
@@ -117,8 +135,9 @@ namespace liquid {
 		//Create a binder `name` while checking that this binder is created normally by a subsequent call to CreateBinder or CreateBinderWithQualifiers
 		ResultType CreateFutureBinder(std::string name, FixpointBaseType type);
 		ResultType AddBinderInformation(std::string name, std::string binderName, std::vector<std::string> binderQualifiers);
+		ResultType AddTemporaryBinderInformation(std::string name, std::string binderName, FixpointBaseType type, std::vector<std::string> binderQualifiers);
 		ResultType AddConstraintForAssignment(std::string constraintName, std::string targetName, std::string assignedExpression, std::vector<std::string> environmentBinders, std::vector<std::string> futureBinders, std::vector<std::string> binderInformation);
-
+		ResultType AddUninterpretedFunctionDefinitionIfNew(std::string functionName, std::vector<std::string> parameterTypes, std::string returnType);
 		ResultType ToStringOrFailure(std::string& output);
 	};
 }
