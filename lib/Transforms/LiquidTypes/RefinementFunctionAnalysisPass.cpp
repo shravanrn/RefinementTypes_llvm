@@ -12,6 +12,70 @@ namespace llvm {
 
 	namespace {
 
+		class LLVMFunctionBlockGraph : public FunctionBlockGraph
+		{
+			Function& F;
+			const DominatorTree& dominatorTree;
+
+			const llvm::BasicBlock* getBasicBlockRef(const std::string& blockName) const
+			{
+				for (const auto& block : F)
+				{
+					if (block.getName().str() == blockName)
+					{
+						return &block;
+					}
+				}
+
+				return nullptr;
+			}
+
+		public:
+			LLVMFunctionBlockGraph(Function &_F, const DominatorTree& _dominatorTree) : F(_F), dominatorTree(_dominatorTree) {}
+
+			// Inherited via FunctionBlockGraph
+			std::string GetStartingBlockName() const override
+			{
+				return "entry"s;
+			}
+			
+			ResultType GetSuccessorBlocks(const std::string& blockName, std::vector<std::string>& successorBlocks) const override
+			{
+				const BasicBlock* blockRef = getBasicBlockRef(blockName);
+				if (blockRef == nullptr)
+				{
+					return ResultType::Error("Block : "s + blockName + " not found"s);
+				}
+
+				auto successors = blockRef->getTerminator()->successors();
+				
+				for (const auto& successor : successors)
+				{
+					successorBlocks.push_back(successor->getName().str());
+				}
+
+				return ResultType::Success();
+			}
+			
+			ResultType StrictlyDominates(const std::string& firstblockName, const std::string& secondBlockName, bool &result) const override
+			{
+				const BasicBlock* firstBlockRef = getBasicBlockRef(firstblockName);
+				if (firstBlockRef == nullptr)
+				{
+					return ResultType::Error("Block : "s + firstblockName + " not found"s);
+				}
+
+				const BasicBlock* secondBlockRef = getBasicBlockRef(secondBlockName);
+				if (secondBlockRef == nullptr)
+				{
+					return ResultType::Error("Block : "s + secondBlockName + " not found"s);
+				}
+
+				result = dominatorTree.properlyDominates(firstBlockRef, secondBlockRef);
+				return ResultType::Success();
+			}
+		};
+
 		void runRefinementAnalysis(Function &F, const DominatorTree& dominatorTree, const llvm::LoopInfo& loopInfo, const AnalysisRetriever& analysisRetriever, RefinementFunctionInfo& r)
 		{
 			auto metadata = F.getMetadata("refinement");
@@ -31,7 +95,8 @@ namespace llvm {
 			//if we have the function body
 			if (!F.isDeclaration())
 			{
-				r.ConstraintGenerator = std::make_unique<RefinementConstraintGenerator>(F, dominatorTree);
+				LLVMFunctionBlockGraph llvmFunctionBlockGraph(F, dominatorTree);
+				r.ConstraintGenerator = std::make_unique<RefinementConstraintGenerator>(F, llvmFunctionBlockGraph);
 
 				{
 					ResultType constraintRes = r.ConstraintGenerator->BuildConstraintsFromSignature(r.SignatureMetadata->ParsedFnRefinementMetadata);

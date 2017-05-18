@@ -419,7 +419,7 @@ void PassManagerBuilder::populateModulePassManager(
 
     // Ensure that we run the refinement checker pass at O0 optimization level as well
     // We depend on the mem2reg pass, so we run that first
-    MPM.add(createPromoteMemoryToRegisterPass()); MPM.add(createRefinementCheckerPass());
+    /* MPM.add(createPromoteMemoryToRegisterPass()); */ MPM.add(createRefinementCheckerPass());
 
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
     return;

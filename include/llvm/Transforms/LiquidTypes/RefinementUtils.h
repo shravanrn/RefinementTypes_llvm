@@ -5,6 +5,8 @@
 #include <vector>
 #include <map>
 #include <functional>
+#include <set>
+#include <iterator>
 
 namespace liquid {
 
@@ -35,7 +37,7 @@ namespace liquid {
 		}
 
 		template <typename T>
-		static std::vector<T> vectorAppend(const std::vector<T>& vectorA, const std::vector<T>& vectorB)
+		static inline std::vector<T> vectorAppend(const std::vector<T>& vectorA, const std::vector<T>& vectorB)
 		{
 			std::vector<T> result;
 			result.reserve(vectorA.size() + vectorB.size());
@@ -44,12 +46,52 @@ namespace liquid {
 			return result;
 		}
 
+		template <typename T>
+		static inline std::set<T> SetAppend(const std::set<T>& setA, const std::set<T>& setB)
+		{
+			std::set<T> result;
+			result.insert(setA.begin(), setA.end());
+			result.insert(setB.begin(), setB.end());
+			return result;
+		}
+
+		template <typename T>
+		static inline std::set<T> SetAppend(const std::vector<T>& vectorA, const std::vector<T>& vectorB)
+		{
+			std::set<T> result;
+			result.insert(vectorA.begin(), vectorA.end());
+			result.insert(vectorB.begin(), vectorB.end());
+			return result;
+		}
+
+		template <typename T>
+		static inline std::set<T> SetIntersection(const std::set<T>& setA, const std::set<T>& setB)
+		{
+			std::set<T> result;
+			std::set_intersection(setA.begin(), setA.end(), setB.begin(), setB.end(), std::inserter(result, result.begin()));
+			return result;
+		}
+
+		template <typename T>
+		static inline std::set<T> SetDifference(const std::set<T>& setA, const std::set<T>& setB)
+		{
+			std::set<T> result;
+			std::set_difference(setA.begin(), setA.end(), setB.begin(), setB.end(), std::inserter(result, result.begin()));
+			return result;
+		}
+
 		template <typename T1, typename T2>
-		static bool containsKey(const std::map<T1, T2>& m, const T1& key)
+		static inline bool containsKey(const std::map<T1, T2>& m, const T1& key)
 		{
 			auto it = m.find(key);
 			bool found = (it != m.end());
 			return found;
+		}
+
+		template <typename Container, typename ElementType>
+		static inline bool Contains(Container sourceContainer, ElementType element)
+		{
+			return std::find(sourceContainer.begin(), sourceContainer.end(), element) != sourceContainer.end();
 		}
 
 		template<typename T1, typename T2>
@@ -61,6 +103,30 @@ namespace liquid {
 				ret.push_back(projectFunc(el));
 			}
 
+			return ret;
+		}
+
+		template <typename T1, typename T2>
+		static inline std::vector<T1> GetKeys(const std::map<T1, T2>& m)
+		{
+			std::vector<T1> ret;
+			std::transform(m.begin(), m.end(), std::back_inserter(ret), [](const std::map<T1, T2>::value_type& val) { return val.first; });
+			return ret;
+		}
+
+		template <typename T1, typename T2>
+		static inline std::set<T1> GetKeysSet(const std::map<T1, T2>& m)
+		{
+			std::set<T1> ret;
+			std::transform(m.begin(), m.end(), std::inserter(ret, ret.begin()), [](const std::map<T1, T2>::value_type& val) { return val.first; });
+			return ret;
+		}
+
+		template <typename T1, typename T2>
+		static inline std::vector<T2> GetValues(const std::map<T1, T2>& m)
+		{
+			std::vector<T2> ret;
+			std::transform(m.begin(), m.end(), std::back_inserter(ret), [](const std::map<T1, T2>::value_type& val) { return val.second; });
 			return ret;
 		}
 	};

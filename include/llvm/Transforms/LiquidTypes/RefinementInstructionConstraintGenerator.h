@@ -2,6 +2,7 @@
 #define LLVM_TRANSFORMS_UTILS_REFINEMENTSINSTRUCTIONCONSTRAINTGENERATOR_H
 
 #include <string>
+#include <map>
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/LiquidTypes/ResultType.h"
@@ -19,9 +20,10 @@ namespace liquid {
 	class RefinementInstructionConstraintGenerator
 	{
 	private:
-		FixpointConstraintBuilder& constraintBuilder;
 		FixpointTypeConvertor& fixpointTypeConvertor;
 		VariablesEnvironment& variableEnv;
+
+		std::map<const llvm::Instruction*, std::string> loadInstructionNames;
 
 		bool isLLVMRegister(const llvm::Value& value);
 		ResultType getBinderName(const llvm::Value& value, std::string& binderName);
@@ -35,7 +37,7 @@ namespace liquid {
 		);
 
 	public:
-		RefinementInstructionConstraintGenerator(FixpointConstraintBuilder& _constraintBuilder, FixpointTypeConvertor& _fixpointTypeConvertor, VariablesEnvironment& _variableEnv) : constraintBuilder(_constraintBuilder), fixpointTypeConvertor(_fixpointTypeConvertor), variableEnv(_variableEnv) {}
+		RefinementInstructionConstraintGenerator(FixpointTypeConvertor& _fixpointTypeConvertor, VariablesEnvironment& _variableEnv) : fixpointTypeConvertor(_fixpointTypeConvertor), variableEnv(_variableEnv) {}
 		ResultType CaptureBinaryOperatorConstraint(const std::string& blockName, const BinaryOperator& binaryOpInst);
 		ResultType CaptureReturnInstructionConstraint(const std::string& blockName, const ReturnInst& returnInst);
 		ResultType CaptureComparisonInstructionConstraint(const std::string& blockName, const CmpInst& cmpInst);
@@ -47,6 +49,7 @@ namespace liquid {
 		ResultType CaptureAllocaInstructionConstraint(const std::string& blockName, const AllocaInst& allocaInst);
 		ResultType CaptureStoreInstructionConstraint(const std::string& blockName, const StoreInst& storeInst);
 		ResultType CaptureLoadInstructionConstraint(const std::string& blockName, const LoadInst& loadInst);
+		ResultType CaptureBlockConstraints(const std::string& blockName);
 	};
 }
 

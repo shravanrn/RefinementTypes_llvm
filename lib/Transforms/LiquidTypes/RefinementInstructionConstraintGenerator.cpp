@@ -24,7 +24,7 @@ namespace liquid {
 		}
 		else if (auto loadInstVal = dyn_cast<llvm::LoadInst>(&value))
 		{
-			binderName = variableEnv.GetInstructionName(*loadInstVal);
+			binderName = loadInstructionNames[loadInstVal];
 			return ResultType::Success();
 		}
 		else if (auto constantVal = dyn_cast<llvm::ConstantInt>(&value))
@@ -32,22 +32,18 @@ namespace liquid {
 			std::string constValue = constantVal->getValue().toString(10 /* radix */, false /* unsigned */);
 			std::string possibleBinderName = "__constInt_" + constValue;
 
-			if (!constraintBuilder.DoesBinderExist(possibleBinderName))
+			if (!variableEnv.IsVariableDefined(possibleBinderName))
 			{
-				//this is a constant, so just add it to the top block. No point adding it to the current block
-				variableEnv.AddVariable("entry", possibleBinderName);
-				std::vector<std::string> variableConstraints;
-				std::string constraintString = "__value == " + constValue;
-				variableConstraints.push_back(constraintString);
-
-				FixpointBaseType fixpointType;
+				FixpointType fixpointType;
 				auto convertResult = fixpointTypeConvertor.GetFixpointType(*(constantVal->getType()), fixpointType);
 				if (!convertResult.Succeeded) { return convertResult; }
 
-				auto createBinderRes = constraintBuilder.CreateBinderWithConstraints(possibleBinderName, fixpointType, variableConstraints);
+				std::string constraintString = "__value == "s + constValue;
+
+				auto createBinderRes = variableEnv.CreateImmutableInputVariable(possibleBinderName, fixpointType, { constraintString });
 				if (!createBinderRes.Succeeded) { return createBinderRes; }
 
-				ResultType addQualRes = constraintBuilder.AddQualifierIfNew(possibleBinderName, { fixpointType }, { "__value" }, constraintString);
+				ResultType addQualRes = variableEnv.constraintBuilder.AddQualifierIfNew(possibleBinderName, { fixpointType }, { "__value" }, constraintString);
 				if (!addQualRes.Succeeded) { return addQualRes; }
 			}
 
@@ -161,34 +157,25 @@ namespace liquid {
 
 			auto rightRes = getBinderName(*(binaryOpInst.getOperand(1)), right);
 			if (!rightRes.Succeeded) { return rightRes; }
+
+			left = variableEnv.GetVariableName(left);
+			right = variableEnv.GetVariableName(right);
 		}
 
-		auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
-		auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
-
 		auto opRegisterName = binaryOpInst.getName().str();
-		std::string constraintName = opRegisterName + operatorDesc;
 
-		variableEnv.AddVariable(blockName, opRegisterName);
-
-		FixpointBaseType fixpointType;
-		auto convertResult = fixpointTypeConvertor.GetFixpointType(*(binaryOpInst.getType()), fixpointType);
-		if (!convertResult.Succeeded) { return convertResult; }
-
-		auto createBinderRes = constraintBuilder.CreateBinder(opRegisterName, fixpointType, variablesInScope, variablesInfo);
-		if (!createBinderRes.Succeeded) { return createBinderRes; }
+		FixpointType fixpointType;
+		{
+			auto convertResult = fixpointTypeConvertor.GetFixpointType(*(binaryOpInst.getType()), fixpointType);
+			if (!convertResult.Succeeded) { return convertResult; }
+		}
 
 		llvm::Type* retType = binaryOpInst.getType();
 		if (retType->isIntegerTy())
 		{
 			std::string arithmeticExpressionForType = GetIntegerOperatorExpression(binaryOpInst, left, operatorString, right);
 
-			auto addConstraintRes = constraintBuilder.AddConstraintForAssignment(constraintName, 
-				opRegisterName, 
-				arithmeticExpressionForType, 
-				variablesInScope, 
-				{} /* future binders needed only for phi nodes */, variablesInfo);
-
+			auto addConstraintRes = variableEnv.CreateImmutableVariable(opRegisterName, fixpointType, { }, arithmeticExpressionForType);
 			if (!addConstraintRes.Succeeded) { return addConstraintRes; }
 		}
 		else
@@ -203,17 +190,16 @@ namespace liquid {
 	{
 		auto retVal = returnInst.getReturnValue();
 		std::string retValStr;
-		auto getBinderNameRes= getBinderName(*retVal, retValStr);
-		if (!getBinderNameRes.Succeeded) { return getBinderNameRes; }
+		{
+			auto getBinderNameRes= getBinderName(*retVal, retValStr);
+			if (!getBinderNameRes.Succeeded) { return getBinderNameRes; }
 
-		auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
-		auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
+			retValStr = variableEnv.GetVariableName(retValStr);
+		}
 
 		std::string assignedExpression = " __value == " + retValStr;
 
-		auto freshNameSuffix = constraintBuilder.GetFreshNameSuffix();
-		auto constraintName = "return_" + std::to_string(freshNameSuffix);
-		auto addConstraintRes = constraintBuilder.AddConstraintForAssignment(constraintName, "return", assignedExpression, variablesInScope, {} /* future binders needed only for phi nodes */, variablesInfo);
+		auto addConstraintRes = variableEnv.AssignMutableVariable("return", assignedExpression);
 		if (!addConstraintRes.Succeeded) { return addConstraintRes; }
 
 		return ResultType::Success();
@@ -270,23 +256,20 @@ namespace liquid {
 			auto leftRes = getBinderName(*(cmpInst.getOperand(0)), left);
 			if (!leftRes.Succeeded) { return leftRes; }
 
+			left = variableEnv.GetVariableName(left);
+
 			auto rightRes = getBinderName(*(cmpInst.getOperand(1)), right);
 			if (!rightRes.Succeeded) { return rightRes; }
+
+			right = variableEnv.GetVariableName(right);
 		}
 
-		auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
-		auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
-
 		auto opRegisterName = cmpInst.getName().str();
-		variableEnv.AddVariable(blockName, opRegisterName);
-		auto createBinderRes = constraintBuilder.CreateBinder(opRegisterName, liquid::FixpointBaseType::BOOL, variablesInScope, variablesInfo);
-		if (!createBinderRes.Succeeded) { return createBinderRes; }
 
 		auto intType = dyn_cast<IntegerType>(cmpInst.getOperand(0)->getType());
 		auto signedMaxIntVal = APInt::getSignedMaxValue(intType->getBitWidth());
 		std::string signedMaxIntValStr = signedMaxIntVal.toString(10 /* radix */, false /* unsigned */);
 
-		std::string constraintName = opRegisterName + operatorDesc;
 		std::string compareExpression;
 
 		if (signedOp)
@@ -313,8 +296,10 @@ namespace liquid {
 			compareExpression = "__value <=> ("s + left + operatorString + right + " )"s;
 		}
 
-		auto addConstraintRes = constraintBuilder.AddConstraintForAssignment(constraintName, opRegisterName, compareExpression, variablesInScope, {} /* future binders needed only for phi nodes */, variablesInfo);
-		if (!addConstraintRes.Succeeded) { return addConstraintRes; }
+		{
+			auto addConstraintRes = variableEnv.CreateImmutableVariable(opRegisterName, FixpointType::GetBoolType(), {}, compareExpression);
+			if (!addConstraintRes.Succeeded) { return addConstraintRes; }
+		}
 
 		return ResultType::Success();
 	}
@@ -334,36 +319,27 @@ namespace liquid {
 		{
 			auto leftRes = getBinderName(*leftOperand, left);
 			if (!leftRes.Succeeded) { return leftRes; }
+
+			left = variableEnv.GetVariableName(left);
 		}
 
-		FixpointBaseType fixpointType;
+		FixpointType fixpointType;
 		{
 			auto convertResult = fixpointTypeConvertor.GetFixpointType(*(zextInst.getType()), fixpointType);
 			if (!convertResult.Succeeded) { return convertResult; }
 		}
 
-		auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
-		auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
 		auto opRegisterName = zextInst.getName().str();
-		variableEnv.AddVariable(blockName, opRegisterName);
 
-		auto createBinderRes = constraintBuilder.CreateBinder(opRegisterName, fixpointType, variablesInScope, variablesInfo);
-		if (!createBinderRes.Succeeded) { return createBinderRes; }
+		std::string assignedExpression = convertFromBooleanType?
+			(	"if (" + left + ") then __value == 1 else __value == 0") 
+			:
+			("__value == " + left);
 
-		std::string assignedExpression;
-		if (convertFromBooleanType)
 		{
-			assignedExpression ="if (" + left + ") then __value == 1 else __value == 0";
+			auto addConstraintRes = variableEnv.CreateImmutableVariable(opRegisterName, fixpointType, {}, assignedExpression);
+			if (!addConstraintRes.Succeeded) { return addConstraintRes; }
 		}
-		else
-		{
-			assignedExpression = "__value == " + left;
-		}
-
-		auto freshNameSuffix = constraintBuilder.GetFreshNameSuffix();
-		auto constraintName = "zext_" + std::to_string(freshNameSuffix);
-		auto addConstraintRes = constraintBuilder.AddConstraintForAssignment(constraintName, opRegisterName, assignedExpression, variablesInScope, {} /* future binders needed only for phi nodes */, variablesInfo);
-		if (!addConstraintRes.Succeeded) { return addConstraintRes; }
 
 		return ResultType::Success();
 	}
@@ -387,19 +363,11 @@ namespace liquid {
 		auto conditionFailBlock = brInst.getSuccessor(1)->getName().str();
 
 		{
-			auto infoNameTrue = conditionVar + "_" + blockName + "_" + "branch_true";
-			variableEnv.AddVariableInfo(conditionSuccessBlock, infoNameTrue);
-			std::vector<std::string> binderInfoQualifiers;
-			binderInfoQualifiers.push_back("__value");
-			ResultType binderInfoRes = constraintBuilder.AddBinderInformation(infoNameTrue, conditionVar, binderInfoQualifiers);
+			auto binderInfoRes = variableEnv.AddBranchInformation(conditionVar, true, conditionSuccessBlock, conditionFailBlock);
 			if (!binderInfoRes.Succeeded) { return binderInfoRes; }
 		}
 		{
-			auto infoNameFalse = conditionVar + "_" + blockName + "_" + "branch_false";
-			variableEnv.AddVariableInfo(conditionFailBlock, infoNameFalse);
-			std::vector<std::string> binderInfoQualifiers;
-			binderInfoQualifiers.push_back("~__value");
-			ResultType binderInfoRes = constraintBuilder.AddBinderInformation(infoNameFalse, conditionVar, binderInfoQualifiers);
+			auto binderInfoRes = variableEnv.AddBranchInformation(conditionVar, false , conditionFailBlock, conditionSuccessBlock);
 			if (!binderInfoRes.Succeeded) { return binderInfoRes; }
 		}
 
@@ -412,18 +380,14 @@ namespace liquid {
 		auto phiTargetVarName = phiInst.getName().str();
 		auto targetLLVMType = phiInst.getType();
 
-		FixpointBaseType targetFixpointType;
+		FixpointType targetFixpointType;
 		{
 			auto convertResult = fixpointTypeConvertor.GetFixpointType(*targetLLVMType, targetFixpointType);
 			if (!convertResult.Succeeded) { return convertResult; }
 		}
 
-		{
-			auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
-			auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
-			auto createBinderRes = constraintBuilder.CreateBinder(phiTargetVarName, targetFixpointType, variablesInScope, variablesInfo);
-			if (!createBinderRes.Succeeded) { return createBinderRes; }
-		}
+		std::vector<std::string> phiVariables;
+		std::vector<std::string> phiBlockNames;
 
 		for (auto& operand : operands)
 		{
@@ -436,45 +400,13 @@ namespace liquid {
 
 			auto incomingBlock = phiInst.getIncomingBlock(operand);
 			auto incomingBlockName = incomingBlock->getName().str();
-			auto incomingVariablesInScope = variableEnv.GetVariablesInScope(incomingBlockName);
-			auto incomingVariablesInfo = variableEnv.GetVariablesInfo(incomingBlockName);
 
-			std::vector<std::string> futureVariables;
-
-			if (isLLVMRegister(*val))
-			{
-				if (std::find(incomingVariablesInScope.begin(), incomingVariablesInScope.end(), variableName) == incomingVariablesInScope.end())
-				{
-					//if this is a variable, which is not in scope, this may not have been created yet
-					//consider the following example
-					//
-					//entry:
-					//  br for.cond  
-					//for.cond
-					//  i.0 = phi 0  inc
-					//	...
-					//  br for.body
-					//for.body
-					//  inc = add ret.0  1  
-					//  br for.cond  
-					//  ...
-					//
-					//Here inc is used before its actual definition while reading top down
-					//we need to guard against this
-					auto futureBinderRes = constraintBuilder.CreateFutureBinder(variableName, targetFixpointType);
-					if (!futureBinderRes.Succeeded) { return futureBinderRes; }
-					futureVariables.push_back(variableName);
-				}
-			}
-
-			auto assignmentQualifier = "__value == " + variableName;
-
-			auto constraintName = blockName + "_phi_" + variableName;
-			auto addConstraintRes = constraintBuilder.AddConstraintForAssignment(constraintName, phiTargetVarName, assignmentQualifier, incomingVariablesInScope, futureVariables, incomingVariablesInfo);
-			if (!addConstraintRes.Succeeded) { return addConstraintRes; }
+			phiVariables.push_back(variableName);
+			phiBlockNames.push_back(incomingBlockName);
 		}
 
-		variableEnv.AddVariable(blockName, phiTargetVarName);
+		auto createBinderRes = variableEnv.CreatePhiNode(phiTargetVarName, targetFixpointType, phiVariables, phiBlockNames);
+		if (!createBinderRes.Succeeded) { return createBinderRes; }
 
 		return ResultType::Success();
 	}
@@ -484,47 +416,47 @@ namespace liquid {
 		auto selTargetVarName = selectInst.getName().str();
 		auto targetLLVMType = selectInst.getType();
 
-		FixpointBaseType targetFixpointType;
+		FixpointType targetFixpointType;
 		{
 			auto convertResult = fixpointTypeConvertor.GetFixpointType(*targetLLVMType, targetFixpointType);
 			if (!convertResult.Succeeded) { return convertResult; }
 		}
 
-		auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
-
+		std::string conditionVar;
 		{
-			auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
-			auto createBinderRes = constraintBuilder.CreateBinder(selTargetVarName, targetFixpointType, variablesInScope, variablesInfo);
+			auto val = selectInst.getCondition();
+
+			auto variableNameRes = getBinderName(*val, conditionVar);
+			if (!variableNameRes.Succeeded) { return variableNameRes; }
+
+			conditionVar = variableEnv.GetVariableName(conditionVar);
+		}
+
+		std::string trueVar;
+		{
+			auto val = selectInst.getTrueValue();
+
+			auto variableNameRes = getBinderName(*val, conditionVar);
+			if (!variableNameRes.Succeeded) { return variableNameRes; }
+
+			trueVar = variableEnv.GetVariableName(trueVar);
+		}
+
+		std::string falseVar;
+		{
+			auto val = selectInst.getFalseValue();
+
+			auto variableNameRes = getBinderName(*val, conditionVar);
+			if (!variableNameRes.Succeeded) { return variableNameRes; }
+
+			falseVar = variableEnv.GetVariableName(falseVar);
+		}
+
+		std::string assignedExpression = "if ("s + conditionVar + ") then __value == "s + trueVar + " else __value == "s + falseVar;
+		{
+			auto createBinderRes = variableEnv.CreateImmutableVariable(selTargetVarName, targetFixpointType, {}, assignedExpression);
 			if (!createBinderRes.Succeeded) { return createBinderRes; }
 		}
-
-		for (int i = 0; i < 2; i++)
-		{
-			auto operandVal = selectInst.getTrueValue();
-			auto binderInfoForThisOperand = "__value";
-
-			if (i == 1)
-			{
-				operandVal = selectInst.getFalseValue();
-				binderInfoForThisOperand = "~__value";
-			}
-
-			std::string variableName;
-			{
-				auto variableNameRes = getBinderName(*operandVal, variableName);
-				if (!variableNameRes.Succeeded) { return variableNameRes; }
-			}
-			auto assignmentQualifier = "__value == " + variableName;
-
-			auto incomingVariablesInfo = variableEnv.GetVariablesInfo(blockName);
-			incomingVariablesInfo.push_back(binderInfoForThisOperand);
-
-			auto constraintName = blockName + "_select_" + variableName;
-			auto addConstraintRes = constraintBuilder.AddConstraintForAssignment(constraintName, selTargetVarName, assignmentQualifier, variablesInScope, {} /* future binders needed only for phi nodes */, incomingVariablesInfo);
-			if (!addConstraintRes.Succeeded) { return addConstraintRes; }
-		}
-
-		variableEnv.AddVariable(blockName, selTargetVarName);
 
 		return ResultType::Success();
 	}
@@ -557,9 +489,6 @@ namespace liquid {
 	//and pre_ret to y
 	ResultType RefinementInstructionConstraintGenerator::CaptureCallInstructionConstraint(const std::string& blockName, const CallInst& callInst, const std::string& callVariablesPrefixUsed, const RefinementFunctionSignatureInfo* callRefFunctionInfo)
 	{
-		auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
-		auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
-
 		//Add parameter constraints
 		for (unsigned int i = 0, size = callRefFunctionInfo->ParsedFnRefinementMetadata.Parameters.size(); i < size; i++)
 		{
@@ -569,10 +498,9 @@ namespace liquid {
 			auto actualRegisterName = actualParam->getName().str();
 
 			{
-				std::string constraintName = actualRegisterName + "_param_"s + formalRegisterName;
 				std::string variableTargetName = callVariablesPrefixUsed + formalRegisterName;
-				std::string argumentAssignment = "__value == " + actualRegisterName;
-				auto addConstraintRes = constraintBuilder.AddConstraintForAssignment(constraintName, variableTargetName, argumentAssignment, variablesInScope, {} /* future binders needed only for phi nodes */, variablesInfo);
+
+				auto addConstraintRes = variableEnv.AssignMutableVariable(variableTargetName, "__value == "s + actualRegisterName);
 				if (!addConstraintRes.Succeeded) { return addConstraintRes; }
 			}
 		}
@@ -581,27 +509,19 @@ namespace liquid {
 		{
 			auto formalRegisterName = callInst.getName().str();
 
-			FixpointBaseType fixpointType;
+			FixpointType fixpointType;
 			{
 				auto llvmType = callRefFunctionInfo->ParsedFnRefinementMetadata.Return.LLVMType;
 				auto convertResult = fixpointTypeConvertor.GetFixpointType(*llvmType, fixpointType);
 				if (!convertResult.Succeeded) { return convertResult; }
 			}
 
+			std::string variableTargetName = callVariablesPrefixUsed + callRefFunctionInfo->ParsedFnRefinementMetadata.Return.LLVMName;
+
 			{
-				auto createBinderRes = constraintBuilder.CreateBinder(formalRegisterName, fixpointType, variablesInScope, variablesInfo);
+				auto createBinderRes = variableEnv.CreateImmutableVariable(formalRegisterName, fixpointType, {}, "__value == "s + variableTargetName);
 				if (!createBinderRes.Succeeded) { return createBinderRes; }
 			}
-
-			{
-				std::string constraintName = formalRegisterName + "_param_"s + callRefFunctionInfo->ParsedFnRefinementMetadata.Return.LLVMName;
-				std::string variableTargetName = callVariablesPrefixUsed + callRefFunctionInfo->ParsedFnRefinementMetadata.Return.LLVMName;
-				std::string argumentAssignment = "__value == " + variableTargetName;
-				auto addConstraintRes = constraintBuilder.AddConstraintForAssignment(constraintName, formalRegisterName, argumentAssignment, variablesInScope, {} /* future binders needed only for phi nodes */, variablesInfo);
-				if (!addConstraintRes.Succeeded) { return addConstraintRes; }
-			}
-
-			variableEnv.AddVariable(blockName, formalRegisterName);
 		}
 
 		return ResultType::Success();
@@ -619,42 +539,15 @@ namespace liquid {
 
 		auto targetLLVMType = targetPtrLLVMType->getPointerElementType();
 
-		FixpointBaseType targetFixpointType;
+		FixpointType targetFixpointType;
 		{
 			auto convertResult = fixpointTypeConvertor.GetFixpointType(*targetLLVMType, targetFixpointType);
 			if (!convertResult.Succeeded) { return convertResult; }
 		}
 
-		std::string uniqueBinderName = "__"s + allocName + std::to_string(constraintBuilder.GetFreshNameSuffix());
-		std::string tempInitValueName = "__" + allocName;
 		{
-			variableEnv.AddVariable(blockName, tempInitValueName);
-			auto createBinderRes = constraintBuilder.CreateBinderWithConstraints(tempInitValueName, targetFixpointType, { "true" });
+			auto createBinderRes = variableEnv.CreateMutableVariable(allocName, targetFixpointType, {}, "true");
 			if (!createBinderRes.Succeeded) { return createBinderRes; }
-		}
-
-		{
-			auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
-			auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
-
-			//add a temporary binder
-			std::string uniqueTempName = allocName + std::to_string(constraintBuilder.GetFreshNameSuffix());
-			auto tempBinderRes = constraintBuilder.AddTemporaryBinderInformation(uniqueTempName, allocName, targetFixpointType, { "true" });
-			if (!tempBinderRes.Succeeded) { return tempBinderRes; }
-			variablesInfo.push_back(uniqueTempName);
-
-			auto createBinderRes = constraintBuilder.CreateBinder(allocName, targetFixpointType, variablesInScope, variablesInfo);
-			if (!createBinderRes.Succeeded) { return createBinderRes; }
-
-			//update the variables in scope as we have created a new binder
-			variablesInScope = variableEnv.GetVariablesInScope(blockName);
-
-			std::string constraint = "deref("s + allocName + ") = "s + tempInitValueName;
-			std::string constraintName = allocName + "_init_val";
-
-			auto addConstraintRes = constraintBuilder.AddConstraintForAssignment(constraintName, allocName, constraint, variablesInScope, {}, variablesInfo);
-			if (!addConstraintRes.Succeeded) { return addConstraintRes; }
-			variableEnv.AddVariable(blockName, allocName);
 		}
 
 		return ResultType::Success();
@@ -662,23 +555,19 @@ namespace liquid {
 
 	ResultType RefinementInstructionConstraintGenerator::CaptureStoreInstructionConstraint(const std::string& blockName, const StoreInst& storeInst)
 	{
-		std::string storeSourceName = storeInst.getValueOperand()->getName().str();
-		std::string storeTargetName = storeInst.getPointerOperand()->getName().str();
-		auto targetLLVMType = storeInst.getValueOperand()->getType();
-
-		FixpointBaseType targetFixpointType;
+		std::string storeSourceName;
 		{
-			auto convertResult = fixpointTypeConvertor.GetFixpointType(*targetLLVMType, targetFixpointType);
-			if (!convertResult.Succeeded) { return convertResult; }
+			auto variableNameRes = getBinderName(*storeInst.getValueOperand(), storeSourceName);
+			if (!variableNameRes.Succeeded) { return variableNameRes; }
 		}
 
-		std::string uniqueBinderName = "__"s + storeTargetName + std::to_string(constraintBuilder.GetFreshNameSuffix());
-		std::string tempInitValueName = "__" + storeTargetName;
-		{
-			auto createBinderRes = constraintBuilder.AddBinderInformation(uniqueBinderName, tempInitValueName, { "__value == " + storeSourceName });
-			if (!createBinderRes.Succeeded) { return createBinderRes; }
+		std::string storeTargetName = storeInst.getPointerOperand()->getName().str();
 
-			variableEnv.AddVariableInfo(blockName, storeTargetName, uniqueBinderName);
+		{
+			std::string assignedExpr = "__value == "s + variableEnv.GetVariableName(storeSourceName);
+
+			auto createBinderRes = variableEnv.AssignMutableVariable(storeTargetName, assignedExpr);
+			if (!createBinderRes.Succeeded) { return createBinderRes; }
 		}
 
 		return ResultType::Success();
@@ -689,37 +578,30 @@ namespace liquid {
 		std::string regName = loadInst.getName().str();
 		if (regName == "")
 		{
-			regName = "__tempName" + std::to_string(constraintBuilder.GetFreshNameSuffix());
-			variableEnv.AddInstructionName(loadInst, regName);
+			regName = "__load" + variableEnv.FreshState.GetNextIdString();
+			loadInstructionNames[&loadInst] = regName;
 		}
 		
 		std::string loadSourceName = loadInst.getPointerOperand()->getName().str();
 
 		auto targetLLVMType = loadInst.getType();
-		FixpointBaseType targetFixpointType;
+		FixpointType targetFixpointType;
 		{
 			auto convertResult = fixpointTypeConvertor.GetFixpointType(*targetLLVMType, targetFixpointType);
 			if (!convertResult.Succeeded) { return convertResult; }
 		}
 
 		{
-			auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
-			auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
-			variableEnv.AddVariable(blockName, regName);
+			std::string assignedExpr = "__value == "s + variableEnv.GetVariableName(loadSourceName);
 
-			auto createBinderRes = constraintBuilder.CreateBinder(regName, targetFixpointType, variablesInScope, variablesInfo);
-			if (!createBinderRes.Succeeded) { return createBinderRes; }
-		}
-		{
-			std::string constraintName = regName + "_load"s;
-			std::string assignedExpr = "__value == deref("s + loadSourceName + ")"s;
-
-			auto variablesInScope = variableEnv.GetVariablesInScope(blockName);
-			auto variablesInfo = variableEnv.GetVariablesInfo(blockName);
-
-			auto createBinderRes = constraintBuilder.AddConstraintForAssignment(constraintName, regName, assignedExpr, variablesInScope, {}, variablesInfo);
+			auto createBinderRes = variableEnv.CreateImmutableVariable(regName, targetFixpointType, {}, assignedExpr);
 			if (!createBinderRes.Succeeded) { return createBinderRes; }
 		}
 		return ResultType::Success();
+	}
+
+	ResultType RefinementInstructionConstraintGenerator::CaptureBlockConstraints(const std::string& blockName)
+	{
+		return variableEnv.StartBlock(blockName);
 	}
 }

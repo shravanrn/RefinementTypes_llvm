@@ -8,21 +8,20 @@
 #include <sstream>
 
 #include "llvm/Transforms/LiquidTypes/ResultType.h"
+#include "llvm/Transforms/LiquidTypes/Counter.h"
+#include "llvm/Transforms/LiquidTypes/FixpointType.h"
 
 namespace liquid {
-
-	enum FixpointBaseType { INT, BOOL };
-	static const char* FixpointBaseTypeStrings[] = { "int", "bool" };
 
 	class Qualifier {
 	public:
 		const std::string Name;
-		std::vector<FixpointBaseType> ParamTypes;
+		std::vector<FixpointType> ParamTypes;
 		std::vector<std::string> ParamNames;
 		const std::string QualifierString;
 
 		Qualifier(std::string name,
-			std::vector<FixpointBaseType> paramTypes,
+			std::vector<FixpointType> paramTypes,
 			std::vector<std::string> paramNames,
 			std::string qualifierString) : Name(name), ParamTypes(paramTypes), ParamNames(paramNames), QualifierString(qualifierString) {}
 	};
@@ -31,12 +30,12 @@ namespace liquid {
 	public:
 		const unsigned int Id;
 		const std::string Name;
-		const FixpointBaseType Type;
+		const FixpointType Type;
 		const std::vector<std::string> Qualifiers;
 
 		Binder(unsigned int id,
 			std::string name,
-			FixpointBaseType type,
+			FixpointType type,
 			std::vector<std::string> qualifiers) : Id(id), Name(name), Type(type), Qualifiers(qualifiers) {}
 	};
 
@@ -44,14 +43,14 @@ namespace liquid {
 	public:
 		const unsigned int Id;
 		const std::string Name;
-		const FixpointBaseType Type;
+		const FixpointType Type;
 		const std::vector<std::string> Qualifiers;
 		const std::vector<std::string> TargetQualifiers;
 		const std::vector<unsigned int> BinderReferences;
 
 		Constraint(unsigned int id,
 			std::string name,
-			FixpointBaseType type,
+			FixpointType type,
 			std::vector<std::string> qualifiers,
 			std::vector<std::string> targetQualifiers,
 			std::vector<unsigned int> binderReferences) : Id(id), Name(name), Type(type), Qualifiers(qualifiers), TargetQualifiers(targetQualifiers), BinderReferences(binderReferences) {}
@@ -60,11 +59,11 @@ namespace liquid {
 	class WellFormednessConstraint {
 	public:
 		const unsigned int Id;
-		const FixpointBaseType Type;
+		const FixpointType Type;
 		const std::vector<unsigned int> BinderReferences;
 
 		WellFormednessConstraint(unsigned int id,
-			FixpointBaseType type,
+			FixpointType type,
 			std::vector<unsigned int> binderReferences) : Id(id), Type(type), BinderReferences(binderReferences) {}
 	};
 
@@ -84,59 +83,45 @@ namespace liquid {
 	class FixpointConstraintBuilder {
 	private:
 
-		std::vector<std::unique_ptr<WellFormednessConstraint>> wellFormednessConstraints;
+		Counter freshRefinementId;
+		Counter freshBinderId;
+		Counter freshConstraintId;
+		Counter freshUninterpretedFunctionId;
+		Counter freshNameId;
 
-		std::map<std::string, Qualifier*> qualifierNameMapping;
-		std::vector<std::unique_ptr<Qualifier>> qualifiers;
+		std::map<std::string, std::unique_ptr<WellFormednessConstraint>> wellFormednessConstraintsMapping;
+		std::vector<std::string> wellFormednessConstraintsOrder;
 
-		unsigned int freshRefinementId = 0;
-		unsigned int getFreshRefinementId();
+		std::map<std::string, std::unique_ptr<Qualifier>> qualifierNameMapping;
+		std::vector<std::string> qualifierNameOrder;
 
-		unsigned int freshBinderId = 1;
-		unsigned int getFreshBinderId();
-		std::map<std::string, Binder*> binderNameMapping;
-		std::vector<std::unique_ptr<Binder>> binders;
-		//any context specific binders
-		//for example
-		//
-		//bool a; 
-		//if (a)
-		//{
-		//	//here we have context information about the binder a stating "a is true"
-		//}
-		std::map<std::string, Binder*> binderInformationNameMapping;
-		std::vector<std::unique_ptr<Binder>> binderInformation;
-		ResultType getEnvironmentBinderIds(const std::map<std::string, Binder*>& source, const std::vector<std::string>& names, std::vector<unsigned int>& environmentBinderReferences);
-		ResultType getEnvironmentBinderIds(const std::map<std::string, std::unique_ptr<Binder>>& source, const std::vector<std::string>& names, std::vector<unsigned int>& environmentBinderReferences);
+		std::map<std::string, std::unique_ptr<Binder>> binderNameMapping;
+		std::vector<std::string> binderNameOrder;
 
 		std::map<std::string, std::unique_ptr<Binder>> futureBindersMapping;
-		ResultType isFutureBinderTypeValidIfExists(std::string& name, FixpointBaseType type);
+
+		std::map<std::string, std::unique_ptr<Constraint>> constraintNameMapping;
+		std::vector<std::string> constraintNameOrder;
+
+		std::map<std::string, std::unique_ptr<UninterpretedFunction>> uninterpretedFunctionsNameMapping;
+		std::vector<std::string> uninterpretedFunctionsNameOrder;
+
+		ResultType getEnvironmentBinderIds(const std::vector<std::string>& names, std::vector<unsigned int>& environmentBinderReferences);
+		ResultType isFutureBinderTypeValidIfExists(std::string& name, FixpointType type);
 		ResultType validateNoUninstantiatedFutureBinders();
-
-		unsigned int freshConstraintId = 0;
-		unsigned int getFreshConstraintId();
-		std::map<std::string, Constraint*> constraintNameMapping;
-		std::vector<std::unique_ptr<Constraint>> constraints;
-
-		unsigned int freshFunctionId = 0;
-		unsigned int getFreshFunctionId();
-		std::map<std::string, UninterpretedFunction*> uninterpretedFunctionsNameMapping;
-		std::vector<std::unique_ptr<UninterpretedFunction>> uninterpretedFunctions;
-
-		//used by the user of this class to create a unique name at any time
-		unsigned int freshNameState = 0;
+		ResultType validateBinder(std::string uniqueName, FixpointType type, unsigned int& binderId);
 
 	public:
-		unsigned int GetFreshNameSuffix();
-		ResultType AddQualifierIfNew(std::string name, std::vector<FixpointBaseType> paramTypes, std::vector<std::string> paramNames, std::string qualifierString);
+		Counter* GetFreshName();
+		ResultType AddQualifierIfNew(std::string name, std::vector<FixpointType> paramTypes, std::vector<std::string> paramNames, std::string qualifierString);
 		bool DoesBinderExist(std::string name);
-		ResultType CreateBinder(std::string name, FixpointBaseType type, std::vector<std::string> environmentBinders, std::vector<std::string> binderInformation);
-		ResultType CreateBinderWithConstraints(std::string name, FixpointBaseType type, std::vector<std::string> binderQualifiers);
-		//Create a binder `name` while checking that this binder is created normally by a subsequent call to CreateBinder or CreateBinderWithQualifiers
-		ResultType CreateFutureBinder(std::string name, FixpointBaseType type);
-		ResultType AddBinderInformation(std::string name, std::string binderName, std::vector<std::string> binderQualifiers);
-		ResultType AddTemporaryBinderInformation(std::string name, std::string binderName, FixpointBaseType type, std::vector<std::string> binderQualifiers);
-		ResultType AddConstraintForAssignment(std::string constraintName, std::string targetName, std::string assignedExpression, std::vector<std::string> environmentBinders, std::vector<std::string> futureBinders, std::vector<std::string> binderInformation);
+		ResultType CreateBinderWithUnknownType(std::string uniqueName, std::string binderName, FixpointType type, std::vector<std::string> binderNames);
+		ResultType CreateBinderWithUnknownType(std::string name, FixpointType type, std::vector<std::string> binderNames);
+		ResultType CreateBinderWithConstraints(std::string uniqueName, std::string binderName, FixpointType type, std::vector<std::string> binderQualifiers);
+		ResultType CreateBinderWithConstraints(std::string name, FixpointType type, std::vector<std::string> binderQualifiers);
+		ResultType AddConstraint(std::string constraintName, FixpointType type, std::vector<std::string> constraints, std::string assignedExpression, std::vector<std::string> environmentBinders);
+		ResultType AddConstraintForAssignment(std::string constraintName, std::string targetBinderName, std::string assignedExpression, std::vector<std::string> environmentBinders);
+		ResultType CreateFutureBinder(std::string name, FixpointType type);
 		ResultType AddUninterpretedFunctionDefinitionIfNew(std::string functionName, std::vector<std::string> parameterTypes, std::string returnType);
 		ResultType ToStringOrFailure(std::string& output);
 	};

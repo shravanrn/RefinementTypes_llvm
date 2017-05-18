@@ -10,7 +10,7 @@ namespace liquid
 	class FixpointTypeConvertor
 	{
 	public:
-		ResultType GetFixpointType(const llvm::Type& llvmType, FixpointBaseType& fixpointType);
+		ResultType GetFixpointType(const llvm::Type& llvmType, FixpointType& fixpointType);
 	};
 }
 

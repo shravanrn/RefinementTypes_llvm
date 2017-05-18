@@ -2,11 +2,11 @@
 
 namespace liquid
 {
-	ResultType FixpointTypeConvertor::GetFixpointType(const llvm::Type& llvmType, FixpointBaseType& fixpointType)
+	ResultType FixpointTypeConvertor::GetFixpointType(const llvm::Type& llvmType, FixpointType& fixpointType)
 	{
 		if (llvmType.isIntegerTy())
 		{
-			fixpointType = (llvmType.getIntegerBitWidth() == 1) ? FixpointBaseType::BOOL : FixpointBaseType::INT;
+			fixpointType = (llvmType.getIntegerBitWidth() == 1) ? FixpointType::GetBoolType() : FixpointType::GetIntType();
 			return ResultType::Success();
 		}
 

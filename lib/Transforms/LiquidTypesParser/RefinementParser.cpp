@@ -241,9 +241,18 @@ namespace liquid
 
 		{
 			bool dummyRet;
-			//At this stage, we will assume parsing is already successfull, so just suppress any errors
+			//At this stage, we will assume parsing is already successful, so just suppress any errors
 			bool success = safeParse(this->OriginalRefinementString, parseFunction, errors, dummyRet);
 			assert(success);
+		}
+
+		for(auto& disjunction : disjunctions)
+		{
+			//we now reparse every individial disjunction
+			ParsedRefinement parsedDisjunction;
+			bool success = RefinementParser::ParseRefinement(disjunction.RefinementPieceText, errors, parsedDisjunction);
+			assert(success);
+			disjunction.RefinementPieceText = parsedDisjunction.ParsedRefinementString;
 		}
 
 		return disjunctions;
