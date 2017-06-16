@@ -141,7 +141,7 @@ namespace llvm {
 
 			auto containsFunc = [&sigInfo](llvm::Function& f) {
 				std::string key = f.getName().str();
-				return RefinementUtils::containsKey(sigInfo, key);
+				return RefinementUtils::ContainsKey(sigInfo, key);
 			};
 
 			auto retrieverFunc = [&sigInfo](llvm::Function& f) {

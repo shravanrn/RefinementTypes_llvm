@@ -69,7 +69,7 @@ namespace liquid {
 			return ResultType::Error("Qualifier "s + name + " does not have equal number of param names and types"s);
 		}
 
-		if (RefinementUtils::containsKey(qualifierNameMapping, name))
+		if (RefinementUtils::ContainsKey(qualifierNameMapping, name))
 		{
 			return ResultType::Success();
 		}
@@ -181,7 +181,7 @@ namespace liquid {
 
 	ResultType FixpointConstraintBuilder::AddConstraint(std::string constraintName, FixpointType type, std::vector<std::string> constraints, std::string assignedExpression, std::vector<std::string> environmentBinders)
 	{
-		if (RefinementUtils::containsKey(constraintNameMapping, constraintName))
+		if (RefinementUtils::ContainsKey(constraintNameMapping, constraintName))
 		{
 			return ResultType::Error("Constraint "s + constraintName + " already exists"s);
 		}
@@ -214,7 +214,7 @@ namespace liquid {
 
 	ResultType FixpointConstraintBuilder::AddUninterpretedFunctionDefinitionIfNew(std::string functionName, std::vector<std::string> parameterTypes, std::string returnType)
 	{
-		if (!RefinementUtils::containsKey(uninterpretedFunctionsNameMapping, functionName))
+		if (!RefinementUtils::ContainsKey(uninterpretedFunctionsNameMapping, functionName))
 		{
 			auto functionId = freshUninterpretedFunctionId.GetNextId();
 			uninterpretedFunctionsNameMapping[functionName] = std::make_unique<UninterpretedFunction>(functionId, functionName, parameterTypes, returnType);
@@ -308,7 +308,7 @@ namespace liquid {
 				<< " : { __value : "s
 				<< binder->Type.ToString()
 				<< " | "s
-				<< RefinementUtils::stringJoin(" && "s, binder->Qualifiers)
+				<< RefinementUtils::StringJoin(" && "s, binder->Qualifiers)
 				<< " }\n"s;
 		}
 
@@ -320,17 +320,17 @@ namespace liquid {
 
 			outputBuff << "constraint:\n"s
 				<< "  env ["s
-				<< RefinementUtils::stringJoin(";"s, constraint->BinderReferences)
+				<< RefinementUtils::StringJoin(";"s, constraint->BinderReferences)
 				<< "]\n"s
 				<< "  lhs { __value : "s
 				<< constraint->Type.ToString()
 				<< " | "s
-				<< RefinementUtils::stringJoin(" && "s, constraint->Qualifiers)
+				<< RefinementUtils::StringJoin(" && "s, constraint->Qualifiers)
 				<< " }\n"s
 				<< "  rhs { __value : "s
 				<< constraint->Type.ToString()
 				<< " | "s
-				<< RefinementUtils::stringJoin(" && "s, constraint->TargetQualifiers)
+				<< RefinementUtils::StringJoin(" && "s, constraint->TargetQualifiers)
 				<< " }\n"s
 				<< "  id "s
 				<< constraint->Id
@@ -346,7 +346,7 @@ namespace liquid {
 
 			outputBuff << "wf:\n"s
 				<< "  env ["s
-				<< RefinementUtils::stringJoin(";", wellFormednessConstraint->BinderReferences)
+				<< RefinementUtils::StringJoin(";", wellFormednessConstraint->BinderReferences)
 				<< "]\n"s
 				<< "  reft { __value : "s
 				<< wellFormednessConstraint->Type.ToString()

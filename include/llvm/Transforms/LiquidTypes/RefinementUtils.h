@@ -10,12 +10,11 @@
 
 namespace liquid {
 
-	/// A pass which verifies refinements 
 	class RefinementUtils {
 	public:
 
 		template <typename T>
-		static std::string stringJoin(const std::string& separator, const std::vector<T>& strings)
+		static std::string StringJoin(const std::string& separator, const std::vector<T>& strings)
 		{
 			std::stringstream outputBuff;
 			bool first = true;
@@ -37,7 +36,7 @@ namespace liquid {
 		}
 
 		template <typename T>
-		static inline std::vector<T> vectorAppend(const std::vector<T>& vectorA, const std::vector<T>& vectorB)
+		static inline std::vector<T> VectorAppend(const std::vector<T>& vectorA, const std::vector<T>& vectorB)
 		{
 			std::vector<T> result;
 			result.reserve(vectorA.size() + vectorB.size());
@@ -81,7 +80,7 @@ namespace liquid {
 		}
 
 		template <typename T1, typename T2>
-		static inline bool containsKey(const std::map<T1, T2>& m, const T1& key)
+		static inline bool ContainsKey(const std::map<T1, T2>& m, const T1& key)
 		{
 			auto it = m.find(key);
 			bool found = (it != m.end());
@@ -95,7 +94,7 @@ namespace liquid {
 		}
 
 		template<typename T1, typename T2>
-		static auto selectString(const std::vector<T1>& source, T2 projectFunc)
+		static auto SelectString(const std::vector<T1>& source, T2 projectFunc)
 		{
 			std::vector<std::string> ret;
 			for (auto& el : source)

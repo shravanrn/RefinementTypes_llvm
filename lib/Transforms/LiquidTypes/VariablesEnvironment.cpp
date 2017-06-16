@@ -9,7 +9,7 @@ namespace liquid
 {
 	bool VariablesEnvironment::IsVariableDefined(std::string variableName)
 	{
-		return RefinementUtils::containsKey(variableTypes, variableName);
+		return RefinementUtils::ContainsKey(variableTypes, variableName);
 	}
 
 	std::string VariablesEnvironment::getNextVariableName(const std::string& variable)
@@ -20,14 +20,14 @@ namespace liquid
 
 	std::string VariablesEnvironment::GetVariableName(std::string variableName)
 	{
-		assert(RefinementUtils::containsKey(variablesMappingsPerBlock, currentBlockName));
-		assert(RefinementUtils::containsKey(variablesMappingsPerBlock[currentBlockName], variableName));
+		assert(RefinementUtils::ContainsKey(variablesMappingsPerBlock, currentBlockName));
+		assert(RefinementUtils::ContainsKey(variablesMappingsPerBlock[currentBlockName], variableName));
 		return variablesMappingsPerBlock[currentBlockName][variableName];
 	}
 
 	ResultType VariablesEnvironment::addInformation(const std::string& blockName, const std::string& variableName, bool information)
 	{
-		if (RefinementUtils::containsKey(booleanInformation[blockName], variableName))
+		if (RefinementUtils::ContainsKey(booleanInformation[blockName], variableName))
 		{
 			if (booleanInformation[blockName][variableName] != information)
 			{
@@ -37,7 +37,7 @@ namespace liquid
 			return ResultType::Success();
 		}
 
-		if (!RefinementUtils::containsKey(createdInfoBinders[variableName], information))
+		if (!RefinementUtils::ContainsKey(createdInfoBinders[variableName], information))
 		{
 			std::string currentVarMapping = GetVariableName(variableName);
 			std::string varUniqueConstraintName = getNextVariableName(variableName);
@@ -83,7 +83,7 @@ namespace liquid
 				if (allHaveSameValue)
 				{
 					auto variableVal = booleanInformation[previousBlocks[0]][variableName];
-					if (RefinementUtils::containsKey(booleanInformation[blockName], variableName))
+					if (RefinementUtils::ContainsKey(booleanInformation[blockName], variableName))
 					{
 						if (booleanInformation[blockName][variableName] != variableVal)
 						{
@@ -119,7 +119,7 @@ namespace liquid
 		const FixpointType& type,
 		const std::vector<std::string>& constraints)
 	{
-		if (RefinementUtils::containsKey(variableTypes, variable)) { return ResultType::Error("Variable"s + variable + " already exists."s); }
+		if (RefinementUtils::ContainsKey(variableTypes, variable)) { return ResultType::Error("Variable"s + variable + " already exists."s); }
 
 		std::string mappedVariableName = variable;
 
@@ -148,7 +148,7 @@ namespace liquid
 
 		for (auto& blockVarMap : variablesMappingsPerBlock)
 		{
-			if (!RefinementUtils::containsKey(blockVarMap.second, variable))
+			if (!RefinementUtils::ContainsKey(blockVarMap.second, variable))
 			{
 				blockVarMap.second[variable] = internalVarName;
 				variablesValuesPerBlock[blockVarMap.first].emplace(internalVarName);
@@ -203,13 +203,13 @@ namespace liquid
 
 	ResultType VariablesEnvironment::CreateImmutableVariable(std::string variable, FixpointType type, std::vector<std::string> constraints, std::string expression)
 	{
-		if (RefinementUtils::containsKey(variableTypes, variable)) { return ResultType::Error("Variable"s + variable + " already exists."s); }
+		if (RefinementUtils::ContainsKey(variableTypes, variable)) { return ResultType::Error("Variable"s + variable + " already exists."s); }
 		return createVariable(variable, variable, type, constraints, expression);
 	}
 
 	ResultType VariablesEnvironment::CreateMutableVariable(std::string variable, FixpointType type, std::vector<std::string> constraints, std::string expression)
 	{
-		if (RefinementUtils::containsKey(variableTypes, variable)) { return ResultType::Error("Variable"s + variable + " already exists."s); }
+		if (RefinementUtils::ContainsKey(variableTypes, variable)) { return ResultType::Error("Variable"s + variable + " already exists."s); }
 		mutableVariableConstraints[variable] = constraints;
 		mutableVariables.emplace(variable);
 		return createVariable(variable, variable, type, constraints, expression);
@@ -269,7 +269,7 @@ namespace liquid
 	//else add the information
 	ResultType VariablesEnvironment::AddBranchInformation(const std::string& booleanVariable, const bool variableValue, const std::string& targetBlock, const std::string& contraryBlock)
 	{
-		if (!RefinementUtils::containsKey(variableTypes, booleanVariable))
+		if (!RefinementUtils::ContainsKey(variableTypes, booleanVariable))
 		{
 			return ResultType::Error("Missing variable: "s + booleanVariable);
 		}
@@ -313,11 +313,11 @@ namespace liquid
 	{
 		if (previousFinishedBlocks.size() == 0)
 		{
-			return ResultType::Error("Blocks were not completed in the right order. Expected completion of at least one of block "s + RefinementUtils::stringJoin(", "s, previousUnfinishedBlocks));
+			return ResultType::Error("Blocks were not completed in the right order. Expected completion of at least one of block "s + RefinementUtils::StringJoin(", "s, previousUnfinishedBlocks));
 		}
 		else if (previousFinishedBlocks.size() > 1)
 		{
-			return ResultType::Error("Blocks were not completed in the right order. Multiple completed blocks were not expected "s + RefinementUtils::stringJoin(", "s, previousFinishedBlocks));
+			return ResultType::Error("Blocks were not completed in the right order. Multiple completed blocks were not expected "s + RefinementUtils::StringJoin(", "s, previousFinishedBlocks));
 		}
 
 		//make sure all previous finished blocks dominate the previous unfinished blocks
@@ -343,9 +343,9 @@ namespace liquid
 			if (!allDominated)
 			{
 				return ResultType::Error("Blocks were not completed in the right order. Unexpected control flow graph. Finished: "s
-					+ RefinementUtils::stringJoin(", "s, previousFinishedBlocks)
+					+ RefinementUtils::StringJoin(", "s, previousFinishedBlocks)
 					+ " . Unfinished: "s
-					+ RefinementUtils::stringJoin(", "s, previousUnfinishedBlocks)
+					+ RefinementUtils::StringJoin(", "s, previousUnfinishedBlocks)
 				);
 			}
 		}
@@ -394,8 +394,8 @@ namespace liquid
 					phiNodeObligations[previousUnfinishedBlock].push_back(obligation);
 				}
 
-				auto allBlocks = RefinementUtils::vectorAppend({ previousFinishedBlock }, previousUnfinishedBlocks);
-				auto allPhiVars = RefinementUtils::vectorAppend({ finishedBlockVariable }, phiVariableNames);
+				auto allBlocks = RefinementUtils::VectorAppend({ previousFinishedBlock }, previousUnfinishedBlocks);
+				auto allPhiVars = RefinementUtils::VectorAppend({ finishedBlockVariable }, phiVariableNames);
 
 				std::string newVarName = getNextVariableName(finishedBlockVariable);
 				{
@@ -463,7 +463,7 @@ namespace liquid
 			//hack - for variables that aren't created yet aka future binders, there will be no mapping, so we will just use the name as is
 			//we are relying on the fact, that the first variable mapping is the same as the variable name and that future binders are immutable
 			std::string variableName = blockVariableMapping;
-			if (RefinementUtils::containsKey(variablesMappingsPerBlock[previousBlock], blockVariableMapping))
+			if (RefinementUtils::ContainsKey(variablesMappingsPerBlock[previousBlock], blockVariableMapping))
 			{
 				variableName = variablesMappingsPerBlock[previousBlock][blockVariableMapping];
 			}
@@ -498,7 +498,7 @@ namespace liquid
 			auto blockVariableMapping = sourceVariableNames[i];
 
 			//variable of a phi node hasn't been created yet
-			if (!RefinementUtils::containsKey(variablesMappingsPerBlock[previousBlock], blockVariableMapping))
+			if (!RefinementUtils::ContainsKey(variablesMappingsPerBlock[previousBlock], blockVariableMapping))
 			{
 				auto futureBinderRes = constraintBuilder.CreateFutureBinder(blockVariableMapping, type);
 				if (!futureBinderRes.Succeeded) { return futureBinderRes; }
@@ -583,7 +583,7 @@ namespace liquid
 		for (auto& phiNodeVariable : phiNodeVariables)
 		{
 			std::string mappedVariableName = getNextVariableName(phiNodeVariable);
-			auto blockSpecificVarNames = RefinementUtils::selectString(previousBlocks, [&](const std::string& blockName) {
+			auto blockSpecificVarNames = RefinementUtils::SelectString(previousBlocks, [&](const std::string& blockName) {
 				return variablesMappingsPerBlock.at(blockName).at(phiNodeVariable);
 			});
 

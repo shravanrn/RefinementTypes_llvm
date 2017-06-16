@@ -62,7 +62,7 @@ namespace liquid {
 		{
 			if (variable.Assume.OriginalRefinementString != "")
 			{
-				refinementPiecesForNewQualifiers = RefinementUtils::vectorAppend(refinementPiecesForNewQualifiers, variable.Assume.GetRefinementParts());
+				refinementPiecesForNewQualifiers = RefinementUtils::VectorAppend(refinementPiecesForNewQualifiers, variable.Assume.GetRefinementParts());
 
 				ParsedRefinement refinementToUse = variable.Assume;
 				if (!variableReplacements.empty())
@@ -71,14 +71,14 @@ namespace liquid {
 				}
 
 				std::vector<RefinementPiece> refinementPieces = refinementToUse.GetRefinementParts();
-				std::vector<std::string> refinementPiecesStr = RefinementUtils::selectString(refinementPieces, [](auto &refPiece) { return refPiece.RefinementPieceText; });
-				variableConstraints = RefinementUtils::vectorAppend(variableConstraints, refinementPiecesStr);
+				std::vector<std::string> refinementPiecesStr = RefinementUtils::SelectString(refinementPieces, [](auto &refPiece) { return refPiece.RefinementPieceText; });
+				variableConstraints = RefinementUtils::VectorAppend(variableConstraints, refinementPiecesStr);
 			}
 		}
 
 		if (variable.Verify.OriginalRefinementString != "")
 		{
-			refinementPiecesForNewQualifiers = RefinementUtils::vectorAppend(refinementPiecesForNewQualifiers, variable.Verify.GetRefinementParts());
+			refinementPiecesForNewQualifiers = RefinementUtils::VectorAppend(refinementPiecesForNewQualifiers, variable.Verify.GetRefinementParts());
 
 			ParsedRefinement refinementToUse = variable.Verify;
 			if (!variableReplacements.empty())
@@ -87,8 +87,8 @@ namespace liquid {
 			}
 
 			std::vector<RefinementPiece> refinementPieces = refinementToUse.GetRefinementParts();
-			std::vector<std::string> refinementPiecesStr = RefinementUtils::selectString(refinementPieces, [](auto &refPiece) { return refPiece.RefinementPieceText; });
-			variableConstraints = RefinementUtils::vectorAppend(variableConstraints, refinementPiecesStr);
+			std::vector<std::string> refinementPiecesStr = RefinementUtils::SelectString(refinementPieces, [](auto &refPiece) { return refPiece.RefinementPieceText; });
+			variableConstraints = RefinementUtils::VectorAppend(variableConstraints, refinementPiecesStr);
 		}
 
 		FixpointType fixpointType;
@@ -112,7 +112,7 @@ namespace liquid {
 			std::vector<FixpointType> varTypes;
 			for (auto& var : vars)
 			{
-				if(!RefinementUtils::containsKey(variableTypes, var))
+				if(!RefinementUtils::ContainsKey(variableTypes, var))
 				{
 					return ResultType::Error("Refinement Types: Could not find type for variable " + var);
 				}
@@ -141,7 +141,7 @@ namespace liquid {
 		std::map<std::string, std::string> variableReplacements;
 		std::map<std::string, FixpointType> variableTypes;
 
-		std::vector<RefinementMetadataForVariable> paramsAndRet = RefinementUtils::vectorAppend(refinementData.Parameters, { refinementData.Return });
+		std::vector<RefinementMetadataForVariable> paramsAndRet = RefinementUtils::VectorAppend(refinementData.Parameters, { refinementData.Return });
 		//Find variable renamings
 		for (auto& param : paramsAndRet)
 		{
