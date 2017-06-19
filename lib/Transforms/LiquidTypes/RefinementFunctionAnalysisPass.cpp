@@ -4,6 +4,7 @@
 #include "llvm/Transforms/LiquidTypes/RefinementUtils.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Transforms/LiquidTypes/AnalysisRetriever.h"
 
 using namespace liquid;
@@ -76,7 +77,12 @@ namespace llvm {
 			}
 		};
 
-		void runRefinementAnalysis(Function &F, const DominatorTree& dominatorTree, const llvm::LoopInfo& loopInfo, const AnalysisRetriever& analysisRetriever, RefinementFunctionInfo& r)
+		void runRefinementAnalysis(Function &F, 
+			const llvm::DominatorTree& dominatorTree,
+			const llvm::LoopInfo& loopInfo, 
+			llvm::AAResults& aliasAnalysis,
+			const AnalysisRetriever& analysisRetriever, 
+			RefinementFunctionInfo& r)
 		{
 			auto metadata = F.getMetadata("refinement");
 			//no refinement data
@@ -104,7 +110,7 @@ namespace llvm {
 				}
 
 				{
-					ResultType constraintRes = r.ConstraintGenerator->BuildConstraintsFromInstructions(r.SignatureMetadata->ParsedFnRefinementMetadata, analysisRetriever);
+					ResultType constraintRes = r.ConstraintGenerator->BuildConstraintsFromInstructions(r.SignatureMetadata->ParsedFnRefinementMetadata, aliasAnalysis, analysisRetriever);
 					if (!constraintRes.Succeeded) { report_fatal_error(constraintRes.ErrorMsg); }
 				}
 
@@ -120,6 +126,7 @@ namespace llvm {
 	INITIALIZE_PASS_BEGIN(RefinementFunctionAnalysisPass, "refinementAnalysis", "Refinement constraints Construction", true, true)
 	INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 	INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+	INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 	INITIALIZE_PASS_DEPENDENCY(RefinementFunctionSignatureAnalysisPass)
 	INITIALIZE_PASS_END(RefinementFunctionAnalysisPass, "refinementAnalysis", "Refinement constraints Construction", true, true)
 
@@ -135,6 +142,7 @@ namespace llvm {
 		{
 			auto& dominatorTree = getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
 			auto& loopInfo = getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+			auto& aliasAnalysis = getAnalysis<AAResultsWrapperPass>(F).getAAResults();
 
 			std::string key = F.getName().str();
 			RI[key] = RefinementFunctionInfo();
@@ -150,7 +158,7 @@ namespace llvm {
 			};
 
 			AnalysisRetriever analysisRetriever(containsFunc, retrieverFunc);
-			runRefinementAnalysis(F, dominatorTree, loopInfo, analysisRetriever, RI[key]);
+			runRefinementAnalysis(F, dominatorTree, loopInfo, aliasAnalysis, analysisRetriever, RI[key]);
 		}
 		return false;
 	}
@@ -158,6 +166,7 @@ namespace llvm {
 	void RefinementFunctionAnalysisPass::getAnalysisUsage(AnalysisUsage &AU) const {
 		AU.addRequired<DominatorTreeWrapperPass>();
 		AU.addRequired<LoopInfoWrapperPass>();
+		AU.addRequired<AAResultsWrapperPass>();
 		AU.addRequired<RefinementFunctionSignatureAnalysisPass>();
 		AU.setPreservesAll();
 	}
@@ -169,6 +178,7 @@ namespace llvm {
 		RefinementFunctionInfo r;
 		auto& dominatorTree = AM.getResult<DominatorTreeAnalysis>(F);
 		auto& loopInfo = AM.getResult<LoopAnalysis>(F);
+		auto& aliasAnalysis = AM.getResult<AAManager>(F);
 		auto refinementSignatureInfo = AM.getResult<RefinementFunctionSignatureAnalysis>(F);
 
 		auto containsFunc = [&AM](llvm::Function& f) {
@@ -181,7 +191,7 @@ namespace llvm {
 		};
 
 		AnalysisRetriever analysisRetriever(containsFunc, retrieverFunc);
-		runRefinementAnalysis(F, dominatorTree, loopInfo, analysisRetriever, r);
+		runRefinementAnalysis(F, dominatorTree, loopInfo, aliasAnalysis, analysisRetriever, r);
 
 		return r;
 	}

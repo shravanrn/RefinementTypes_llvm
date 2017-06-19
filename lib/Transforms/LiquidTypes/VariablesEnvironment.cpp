@@ -25,6 +25,11 @@ namespace liquid
 		return variablesMappingsPerBlock[currentBlockName][variableName];
 	}
 
+	std::string VariablesEnvironment::GetVariableAddress(std::string variableName)
+	{
+		return constraintBuilder.GetBinderAddress(variableName);
+	}
+
 	ResultType VariablesEnvironment::addInformation(const std::string& blockName, const std::string& variableName, bool information)
 	{
 		if (RefinementUtils::ContainsKey(booleanInformation[blockName], variableName))
@@ -198,6 +203,7 @@ namespace liquid
 		variableTypes.insert_or_assign(variable, type);
 		variablesMappingsPerBlock[currentBlockName][variable] = mappedVariableName;
 		variablesValuesPerBlock[currentBlockName].emplace(mappedVariableName);
+
 		return ResultType::Success();
 	}
 

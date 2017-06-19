@@ -10,6 +10,7 @@
 #include "llvm/Transforms/LiquidTypes/FixpointTypeConvertor.h"
 #include "llvm/Transforms/LiquidTypes/VariablesEnvironment.h"
 #include "llvm/Transforms/LiquidTypes/RefinementMetadata.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 
 using namespace llvm;
 
@@ -24,6 +25,7 @@ namespace liquid {
 		VariablesEnvironment& variableEnv;
 
 		std::map<const llvm::Instruction*, std::string> loadInstructionNames;
+		std::map<std::string, const llvm::AllocaInst*> allocaVariables;
 
 		bool isLLVMRegister(const llvm::Value& value);
 		ResultType getBinderName(const llvm::Value& value, std::string& binderName);
@@ -47,7 +49,7 @@ namespace liquid {
 		ResultType CaptureSelectInstructionConstraint(const std::string& blockName, const SelectInst& selectInst);
 		ResultType CaptureCallInstructionConstraint(const std::string& blockName, const CallInst& callInst, const std::string& callVariablesPrefixUsed, const RefinementFunctionSignatureInfo* callRefFunctionInfo);
 		ResultType CaptureAllocaInstructionConstraint(const std::string& blockName, const AllocaInst& allocaInst);
-		ResultType CaptureStoreInstructionConstraint(const std::string& blockName, const StoreInst& storeInst);
+		ResultType CaptureStoreInstructionConstraint(const std::string& blockName, const StoreInst& storeInst, llvm::AAResults& aliasAnalysis);
 		ResultType CaptureLoadInstructionConstraint(const std::string& blockName, const LoadInst& loadInst);
 		ResultType CaptureBlockConstraints(const std::string& blockName);
 	};

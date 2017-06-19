@@ -204,7 +204,7 @@ namespace liquid {
 		return ResultType::Success();
 	}
 
-	ResultType RefinementConstraintGenerator::BuildConstraintsFromInstructions(const RefinementMetadata& refinementData, const AnalysisRetriever& analysisRetriever)
+	ResultType RefinementConstraintGenerator::BuildConstraintsFromInstructions(const RefinementMetadata& refinementData, llvm::AAResults& aliasAnalysis, const AnalysisRetriever& analysisRetriever)
 	{
 		bool first = true;
 		for (auto& block : Func)
@@ -279,7 +279,7 @@ namespace liquid {
 				}
 				else if (auto storeInst = dyn_cast<StoreInst>(&instr))
 				{
-					ResultType res = instructionConstraintBuilder.CaptureStoreInstructionConstraint(blockName, *storeInst);
+					ResultType res = instructionConstraintBuilder.CaptureStoreInstructionConstraint(blockName, *storeInst, aliasAnalysis);
 					if (!res.Succeeded) { return res; }
 				}
 				else if (auto loadInst = dyn_cast<LoadInst>(&instr))

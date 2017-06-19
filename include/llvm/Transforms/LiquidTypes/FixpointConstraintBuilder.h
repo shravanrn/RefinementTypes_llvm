@@ -115,6 +115,7 @@ namespace liquid {
 		Counter* GetFreshName();
 		ResultType AddQualifierIfNew(std::string name, std::vector<FixpointType> paramTypes, std::vector<std::string> paramNames, std::string qualifierString);
 		bool DoesBinderExist(std::string name);
+		std::string GetBinderAddress(std::string name);
 		ResultType CreateBinderWithUnknownType(std::string uniqueName, std::string binderName, FixpointType type, std::vector<std::string> binderNames);
 		ResultType CreateBinderWithUnknownType(std::string name, FixpointType type, std::vector<std::string> binderNames);
 		ResultType CreateBinderWithConstraints(std::string uniqueName, std::string binderName, FixpointType type, std::vector<std::string> binderQualifiers);

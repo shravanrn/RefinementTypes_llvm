@@ -2,6 +2,7 @@
 #include "llvm/Transforms/LiquidTypes/RefinementUtils.h"
 #include <memory>
 #include <regex>
+#include <cassert>
 
 using namespace std::literals::string_literals;
 
@@ -84,6 +85,13 @@ namespace liquid {
 		auto binderFound = binderNameMapping.find(name);
 		auto found = (binderFound != binderNameMapping.end());
 		return found;
+	}
+
+	std::string FixpointConstraintBuilder::GetBinderAddress(std::string name)
+	{
+		auto binderFound = binderNameMapping.find(name);
+		assert(binderFound != binderNameMapping.end());
+		return std::to_string(binderFound->second->Id);
 	}
 
 	ResultType FixpointConstraintBuilder::validateBinder(std::string uniqueName, FixpointType type, unsigned int& binderId)

@@ -36,7 +36,7 @@ namespace liquid {
 	public:
 		RefinementConstraintGenerator(const Function &F, const FunctionBlockGraph& functionBlockGraph) : Func(F), variableEnv(functionBlockGraph), instructionConstraintBuilder(fixpointTypeConvertor, variableEnv) {}
 		ResultType BuildConstraintsFromSignature(const RefinementMetadata& refinementData);
-		ResultType BuildConstraintsFromInstructions(const RefinementMetadata& refinementData, const AnalysisRetriever& analysisRetriever);
+		ResultType BuildConstraintsFromInstructions(const RefinementMetadata& refinementData, llvm::AAResults& aliasAnalysis, const AnalysisRetriever& analysisRetriever);
 		ResultType CaptureLoopConstraints(const llvm::LoopInfo& loopInfo);
 		ResultType ToString(std::string& output);
 

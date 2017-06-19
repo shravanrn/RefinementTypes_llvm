@@ -72,6 +72,7 @@ namespace liquid
 		ResultType CreatePhiNode(const std::string& variable, const FixpointType& type, const std::vector<std::string>& sourceVariableNames, const std::vector<std::string>& previousBlocks);
 		bool IsVariableDefined(std::string variableName);
 		std::string GetVariableName(std::string variableName);
+		std::string GetVariableAddress(std::string variableName);
 		ResultType ToStringOrFailure(std::string& output);
 	};
 }

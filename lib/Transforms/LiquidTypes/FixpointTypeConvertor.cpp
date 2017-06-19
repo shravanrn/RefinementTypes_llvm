@@ -9,6 +9,11 @@ namespace liquid
 			fixpointType = (llvmType.getIntegerBitWidth() == 1) ? FixpointType::GetBoolType() : FixpointType::GetIntType();
 			return ResultType::Success();
 		}
+		else if (llvmType.isPointerTy())
+		{
+			fixpointType = FixpointType::GetPointerType();
+			return ResultType::Success();
+		}
 
 		return ResultType::Error("Refinement Types: cannot convert type - to fixpoint type");
 	}
