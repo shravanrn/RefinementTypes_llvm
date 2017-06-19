@@ -629,7 +629,7 @@ namespace liquid {
 		return ResultType::Success();
 	}
 
-	ResultType RefinementInstructionConstraintGenerator::CaptureLoadInstructionConstraint(const std::string& blockName, const LoadInst& loadInst)
+	ResultType RefinementInstructionConstraintGenerator::CaptureLoadInstructionConstraint(const std::string& blockName, const LoadInst& loadInst, llvm::AAResults& aliasAnalysis)
 	{
 		std::string regName = loadInst.getName().str();
 		if (regName == "")
@@ -651,12 +651,51 @@ namespace liquid {
 			if (!convertResult.Succeeded) { return convertResult; }
 		}
 
-		{
-			std::string assignedExpr = "__value == "s + variableEnv.GetVariableName(loadSourceName);
+		auto pointerOperandType = loadInst.getPointerOperand()->getType();
+		bool isStackVariable = !pointerOperandType->getPointerElementType()->isPointerTy();
 
-			auto createBinderRes = variableEnv.CreateImmutableVariable(regName, targetFixpointType, {}, assignedExpr);
-			if (!createBinderRes.Succeeded) { return createBinderRes; }
+		std::string assignedExpr;
+		if (isStackVariable)
+		{
+			std::vector<std::string> mayPointToLocations;
+
+			for (const auto& allocaVariable : allocaVariables)
+			{
+				const std::string& allocName = allocaVariable.first;
+				const llvm::AllocaInst* allocInstr = allocaVariable.second;
+
+				auto aliasInfo = aliasAnalysis.alias(allocInstr, loadInst.getPointerOperand());
+				bool mayPointTo = aliasInfo != llvm::AliasResult::NoAlias;
+
+				if (mayPointTo)
+				{
+					mayPointToLocations.emplace_back(allocName);
+				}
+			}
+
+			bool mayPointToMultipleLocations = mayPointToLocations.size() > 1;
+
+			if (!mayPointToMultipleLocations)
+			{
+				assignedExpr = "__value == "s + variableEnv.GetVariableName(loadSourceName);
+			}
+			else
+			{
+				auto assignedExprStrings = RefinementUtils::SelectString(mayPointToLocations, [&](auto& mayPointToLoc) {
+					return "("s + variableEnv.GetVariableName(loadSourceName) + " == "s + variableEnv.GetVariableAddress(mayPointToLoc) + " <=> __value == "s + variableEnv.GetVariableName(mayPointToLoc) + ")"s;
+				});
+
+				assignedExpr = RefinementUtils::StringJoin(" && "s, assignedExprStrings);
+			}
 		}
+		else
+		{
+			assignedExpr = "__value == "s + variableEnv.GetVariableName(loadSourceName);
+		}
+
+		auto createBinderRes = variableEnv.CreateImmutableVariable(regName, targetFixpointType, {}, assignedExpr);
+		if (!createBinderRes.Succeeded) { return createBinderRes; }
+
 		return ResultType::Success();
 	}
 

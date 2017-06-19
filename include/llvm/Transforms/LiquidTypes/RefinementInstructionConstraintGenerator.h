@@ -50,7 +50,7 @@ namespace liquid {
 		ResultType CaptureCallInstructionConstraint(const std::string& blockName, const CallInst& callInst, const std::string& callVariablesPrefixUsed, const RefinementFunctionSignatureInfo* callRefFunctionInfo);
 		ResultType CaptureAllocaInstructionConstraint(const std::string& blockName, const AllocaInst& allocaInst);
 		ResultType CaptureStoreInstructionConstraint(const std::string& blockName, const StoreInst& storeInst, llvm::AAResults& aliasAnalysis);
-		ResultType CaptureLoadInstructionConstraint(const std::string& blockName, const LoadInst& loadInst);
+		ResultType CaptureLoadInstructionConstraint(const std::string& blockName, const LoadInst& loadInst, llvm::AAResults& aliasAnalysis);
 		ResultType CaptureBlockConstraints(const std::string& blockName);
 	};
 }

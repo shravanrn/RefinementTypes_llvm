@@ -284,7 +284,7 @@ namespace liquid {
 				}
 				else if (auto loadInst = dyn_cast<LoadInst>(&instr))
 				{
-					ResultType res = instructionConstraintBuilder.CaptureLoadInstructionConstraint(blockName, *loadInst);
+					ResultType res = instructionConstraintBuilder.CaptureLoadInstructionConstraint(blockName, *loadInst, aliasAnalysis);
 					if (!res.Succeeded) { return res; }
 				}
 				else
