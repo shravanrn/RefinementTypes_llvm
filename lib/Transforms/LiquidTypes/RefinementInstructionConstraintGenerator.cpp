@@ -527,6 +527,11 @@ namespace liquid {
 		return ResultType::Success();
 	}
 
+	std::string RefinementInstructionConstraintGenerator::getValueVariable(const std::string& variableName) const
+	{
+		return "__val__"s + variableName;
+	}
+
 	ResultType RefinementInstructionConstraintGenerator::CaptureAllocaInstructionConstraint(const std::string& blockName, const AllocaInst& allocaInst)
 	{
 		std::string allocName = allocaInst.getName().str();
@@ -545,13 +550,40 @@ namespace liquid {
 			if (!convertResult.Succeeded) { return convertResult; }
 		}
 
+		std::string valueName = getValueVariable(allocName);
 		{
-			auto createBinderRes = variableEnv.CreateMutableVariable(allocName, targetFixpointType, {}, "true");
+			auto createBinderRes = variableEnv.CreateMutableVariable(valueName, targetFixpointType, {}, "true");
+			if (!createBinderRes.Succeeded) { return createBinderRes; }
+		}
+
+		{
+			auto createBinderRes = variableEnv.CreateImmutableVariable(allocName, FixpointType::GetPointerType(), {}, "__value == "s + variableEnv.GetVariableAddress(valueName));
 			if (!createBinderRes.Succeeded) { return createBinderRes; }
 		}
 
 		allocaVariables[allocName] = &allocaInst;
 		return ResultType::Success();
+	}
+
+	std::vector<std::string> RefinementInstructionConstraintGenerator::getAliasInfo(const llvm::Value& pointerSource, llvm::AAResults& aliasAnalysis)
+	{
+		std::vector<std::string> ret;
+
+		for (const auto& allocaVariable : allocaVariables)
+		{
+			const std::string& allocName = allocaVariable.first;
+			const llvm::AllocaInst* allocInstr = allocaVariable.second;
+
+			auto aliasInfo = aliasAnalysis.alias(allocInstr, &pointerSource);
+			bool mayPointTo = aliasInfo != llvm::AliasResult::NoAlias;
+
+			if (mayPointTo)
+			{
+				ret.emplace_back(allocName);
+			}
+		}
+
+		return ret;
 	}
 
 	ResultType RefinementInstructionConstraintGenerator::CaptureStoreInstructionConstraint(const std::string& blockName, const StoreInst& storeInst, llvm::AAResults& aliasAnalysis)
@@ -568,62 +600,26 @@ namespace liquid {
 			if (!variableNameRes.Succeeded) { return variableNameRes; }
 		}
 
-		auto pointerOperandType = storeInst.getPointerOperand()->getType();
-		bool isStackVariable = !pointerOperandType->getPointerElementType()->isPointerTy();
+		auto aliasedVariables = getAliasInfo(*storeInst.getPointerOperand(), aliasAnalysis);
 
-		if(isStackVariable)
+		for (const auto& aliasedVariable : aliasedVariables)
 		{
-			std::vector<std::string> mayPointToLocations;
+			const auto valueVariable = getValueVariable(aliasedVariable);
 
-			if (RefinementUtils::ContainsKey(allocaVariables, storeTargetName))
+			std::string assignedExpr;
+			if (aliasedVariables.size() == 1)
 			{
-				mayPointToLocations.emplace_back(storeTargetName);
+				assignedExpr = "__value == "s + variableEnv.GetVariableName(storeSourceName);
 			}
 			else
 			{
-				for (const auto& allocaVariable : allocaVariables)
-				{
-					const std::string& allocName = allocaVariable.first;
-					const llvm::AllocaInst* allocInstr = allocaVariable.second;
-
-					auto aliasInfo = aliasAnalysis.alias(allocInstr, storeInst.getPointerOperand());
-					bool mayPointTo = aliasInfo != llvm::AliasResult::NoAlias;
-
-					if (mayPointTo)
-					{
-						mayPointToLocations.emplace_back(allocName);
-					}
-				}
+				assignedExpr = "if "s + variableEnv.GetVariableName(storeTargetName) + " == "s + variableEnv.GetVariableAddress(valueVariable)
+					+ " then __value == "s + variableEnv.GetVariableName(storeSourceName)
+					+ " else __value == "s + variableEnv.GetVariableName(valueVariable);
 			}
 
-			bool mayPointToMultipleLocations = mayPointToLocations.size() > 1;
-
-			if (!mayPointToMultipleLocations)
-			{
-				std::string assignedExpr = "__value == "s + variableEnv.GetVariableName(storeSourceName);
-				auto createBinderRes = variableEnv.AssignMutableVariable(mayPointToLocations[0], assignedExpr);
-				if (!createBinderRes.Succeeded) { return createBinderRes; }
-			}
-			else
-			{
-				for (const auto& mayPointToLocation : mayPointToLocations)
-				{
-					std::string assignedExpr = 
-						"if "s + variableEnv.GetVariableName(storeTargetName) + " == "s + variableEnv.GetVariableAddress(mayPointToLocation)
-						+ " then __value == "s + variableEnv.GetVariableName(storeSourceName)
-						+ " else __value == "s + variableEnv.GetVariableName(mayPointToLocation);
-
-					auto createBinderRes = variableEnv.AssignMutableVariable(mayPointToLocation, assignedExpr);
-					if (!createBinderRes.Succeeded) { return createBinderRes; }
-				}
-			}
-		}
-		else
-		{
-			std::string assignedExpr = "__value == "s + variableEnv.GetVariableAddress(storeSourceName);
-
-			auto assignPtrRes = variableEnv.AssignMutableVariable(storeTargetName, assignedExpr);
-			if (!assignPtrRes.Succeeded) { return assignPtrRes; }
+			auto createBinderRes = variableEnv.AssignMutableVariable(valueVariable, assignedExpr);
+			if (!createBinderRes.Succeeded) { return createBinderRes; }
 		}
 
 		return ResultType::Success();
@@ -644,54 +640,20 @@ namespace liquid {
 			if (!variableNameRes.Succeeded) { return variableNameRes; }
 		}
 
-		auto targetLLVMType = loadInst.getType();
 		FixpointType targetFixpointType;
 		{
-			auto convertResult = fixpointTypeConvertor.GetFixpointType(*targetLLVMType, targetFixpointType);
+			auto convertResult = fixpointTypeConvertor.GetFixpointType(*loadInst.getType(), targetFixpointType);
 			if (!convertResult.Succeeded) { return convertResult; }
 		}
 
-		auto pointerOperandType = loadInst.getPointerOperand()->getType();
-		bool isStackVariable = !pointerOperandType->getPointerElementType()->isPointerTy();
+		auto aliasedVariables = getAliasInfo(*loadInst.getPointerOperand(), aliasAnalysis);
 
-		std::string assignedExpr;
-		if (isStackVariable)
-		{
-			std::vector<std::string> mayPointToLocations;
+		auto valueExtractStrings = RefinementUtils::SelectString(aliasedVariables, [&](const std::string& aliasedVariable) {
+			const auto valueVariable = getValueVariable(aliasedVariable);
+			return variableEnv.GetVariableName(loadSourceName) + " == "s + variableEnv.GetVariableAddress(valueVariable) + " <=> __value == "s + variableEnv.GetVariableName(valueVariable);
+		});
 
-			for (const auto& allocaVariable : allocaVariables)
-			{
-				const std::string& allocName = allocaVariable.first;
-				const llvm::AllocaInst* allocInstr = allocaVariable.second;
-
-				auto aliasInfo = aliasAnalysis.alias(allocInstr, loadInst.getPointerOperand());
-				bool mayPointTo = aliasInfo != llvm::AliasResult::NoAlias;
-
-				if (mayPointTo)
-				{
-					mayPointToLocations.emplace_back(allocName);
-				}
-			}
-
-			bool mayPointToMultipleLocations = mayPointToLocations.size() > 1;
-
-			if (!mayPointToMultipleLocations)
-			{
-				assignedExpr = "__value == "s + variableEnv.GetVariableName(loadSourceName);
-			}
-			else
-			{
-				auto assignedExprStrings = RefinementUtils::SelectString(mayPointToLocations, [&](auto& mayPointToLoc) {
-					return "("s + variableEnv.GetVariableName(loadSourceName) + " == "s + variableEnv.GetVariableAddress(mayPointToLoc) + " <=> __value == "s + variableEnv.GetVariableName(mayPointToLoc) + ")"s;
-				});
-
-				assignedExpr = RefinementUtils::StringJoin(" && "s, assignedExprStrings);
-			}
-		}
-		else
-		{
-			assignedExpr = "__value == "s + variableEnv.GetVariableName(loadSourceName);
-		}
+		auto assignedExpr = RefinementUtils::StringJoin(" && "s, valueExtractStrings);
 
 		auto createBinderRes = variableEnv.CreateImmutableVariable(regName, targetFixpointType, {}, assignedExpr);
 		if (!createBinderRes.Succeeded) { return createBinderRes; }

@@ -38,6 +38,9 @@ namespace liquid {
 			const std::string& right
 		);
 
+		std::string getValueVariable(const std::string& variableName) const;
+		std::vector<std::string> getAliasInfo(const llvm::Value& pointerSource, llvm::AAResults& aliasAnalysis);
+
 	public:
 		RefinementInstructionConstraintGenerator(FixpointTypeConvertor& _fixpointTypeConvertor, VariablesEnvironment& _variableEnv) : fixpointTypeConvertor(_fixpointTypeConvertor), variableEnv(_variableEnv) {}
 		ResultType CaptureBinaryOperatorConstraint(const std::string& blockName, const BinaryOperator& binaryOpInst);
