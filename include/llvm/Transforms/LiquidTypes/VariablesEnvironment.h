@@ -38,14 +38,10 @@ namespace liquid
 		std::set<std::string> finishedBlocks;
 		std::map<std::string, std::vector<PhiNodeObligation>> phiNodeObligations;
 
-		std::map<std::string, std::map<std::string, bool>> booleanInformation;
-		std::map<std::string, std::map<bool, std::string>> createdInfoBinders;
-
 		std::set<std::string> outputVariables;
 		std::set<std::string> mutableVariables;
 
-		ResultType addInformation(const std::string& blockName, const std::string& variableName, bool information);
-		ResultType getInformationBinders(const std::string& blockName, std::vector<std::string>& informationBinders);
+		std::map<std::string, std::string> cachedBlockGuards;
 
 		ResultType createVariable(const std::string& variable, const std::string& mappedVariableName, const FixpointType& type, const std::vector<std::string>& constraints, const std::string& expression);
 		ResultType createIOVariable(const std::string& variable, const FixpointType& type, const std::vector<std::string>& constraints);
@@ -53,8 +49,13 @@ namespace liquid
 		ResultType getCommonVariables(std::vector<std::string> previousBlocks, std::set<std::string>& commonVariables);
 		std::string getNextVariableName(const std::string& variable);
 		std::vector<std::string> getBlockBinders(const std::string& blockName);
+		ResultType getBlockBindersForPhiNode(const std::string& previousBlock, const std::string& blockName, const std::string& mappedVariableName, std::vector<std::string>& binders);
 		ResultType createPhiNodeWithoutCreatedBinders(const std::string& variable, const std::string& mappedVariableName, const FixpointType& type, const std::vector<std::string>& sourceVariableNames, const std::vector<std::string>& previousBlocks);
 		ResultType createPhiNodeInternal(const std::string& variable, const std::string& mappedVariableName, const FixpointType& type, const std::vector<std::string>& sourceVariableNames, const std::vector<std::string>& previousBlocks);
+
+		ResultType getBlockGuard(const std::string& blockName, std::string& blockGuard);
+		ResultType addVariableToBlockAndSuccessors(const std::string& blockName, const std::string& transitionGuardName);
+		ResultType initializeBlockGuards();
 		ResultType endBlock(const std::string& blockName);
 
 	public:
@@ -68,7 +69,8 @@ namespace liquid
 		ResultType CreateImmutableVariable(std::string variable, FixpointType type, std::vector<std::string> constraints, std::string expression);
 		ResultType CreateMutableVariable(std::string variable, FixpointType type, std::vector<std::string> constraints, std::string expression);
 		ResultType AssignMutableVariable(std::string variable, std::string expression);
-		ResultType AddBranchInformation(const std::string& booleanVariable, const bool variableValue, const std::string& targetBlock, const std::string& contraryBlock);
+		ResultType AddJumpInformation(const std::string& targetBlock);
+		ResultType AddBranchInformation(const std::string& booleanVariable, const bool variableValue, const std::string& targetBlock);
 		ResultType CreatePhiNode(const std::string& variable, const FixpointType& type, const std::vector<std::string>& sourceVariableNames, const std::vector<std::string>& previousBlocks);
 		bool IsVariableDefined(std::string variableName);
 		std::string GetVariableName(std::string variableName);

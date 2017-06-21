@@ -346,29 +346,39 @@ namespace liquid {
 
 	ResultType RefinementInstructionConstraintGenerator::CaptureBranchInstructionConstraint(const std::string& blockName, const BranchInst& brInst)
 	{
-		if (brInst.isUnconditional())
+		if (brInst.getNumSuccessors() == 1)
 		{
-			//don't need to do anything here
-			return ResultType::Success();
-		}
+			auto jumpBlock = brInst.getSuccessor(0)->getName().str();
 
-		auto conditionVarValue = brInst.getCondition();
-		std::string conditionVar;
-		{
-			auto conditionVarRes = getBinderName(*conditionVarValue, conditionVar);
-			if (!conditionVarRes.Succeeded) { return conditionVarRes; }
+			{
+				auto binderInfoRes = variableEnv.AddJumpInformation(jumpBlock);
+				if (!binderInfoRes.Succeeded) { return binderInfoRes; }
+			}
 		}
-
-		auto conditionSuccessBlock = brInst.getSuccessor(0)->getName().str();
-		auto conditionFailBlock = brInst.getSuccessor(1)->getName().str();
-
+		else if (brInst.getNumSuccessors() == 2)
 		{
-			auto binderInfoRes = variableEnv.AddBranchInformation(conditionVar, true, conditionSuccessBlock, conditionFailBlock);
-			if (!binderInfoRes.Succeeded) { return binderInfoRes; }
+			auto conditionVarValue = brInst.getCondition();
+			std::string conditionVar;
+			{
+				auto conditionVarRes = getBinderName(*conditionVarValue, conditionVar);
+				if (!conditionVarRes.Succeeded) { return conditionVarRes; }
+			}
+
+			auto conditionSuccessBlock = brInst.getSuccessor(0)->getName().str();
+			auto conditionFailBlock = brInst.getSuccessor(1)->getName().str();
+
+			{
+				auto binderInfoRes = variableEnv.AddBranchInformation(conditionVar, true, conditionSuccessBlock);
+				if (!binderInfoRes.Succeeded) { return binderInfoRes; }
+			}
+			{
+				auto binderInfoRes = variableEnv.AddBranchInformation(conditionVar, false , conditionFailBlock);
+				if (!binderInfoRes.Succeeded) { return binderInfoRes; }
+			}
 		}
+		else
 		{
-			auto binderInfoRes = variableEnv.AddBranchInformation(conditionVar, false , conditionFailBlock, conditionSuccessBlock);
-			if (!binderInfoRes.Succeeded) { return binderInfoRes; }
+			return ResultType::Error("Unexpected successor count for block: "s + blockName);
 		}
 
 		return ResultType::Success();
@@ -650,7 +660,7 @@ namespace liquid {
 
 		auto valueExtractStrings = RefinementUtils::SelectString(aliasedVariables, [&](const std::string& aliasedVariable) {
 			const auto valueVariable = getValueVariable(aliasedVariable);
-			return variableEnv.GetVariableName(loadSourceName) + " == "s + variableEnv.GetVariableAddress(valueVariable) + " <=> __value == "s + variableEnv.GetVariableName(valueVariable);
+			return "("s + variableEnv.GetVariableName(loadSourceName) + " == "s + variableEnv.GetVariableAddress(valueVariable) + " <=> __value == "s + variableEnv.GetVariableName(valueVariable) + ")"s;
 		});
 
 		auto assignedExpr = RefinementUtils::StringJoin(" && "s, valueExtractStrings);

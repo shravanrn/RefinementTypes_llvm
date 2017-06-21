@@ -30,92 +30,11 @@ namespace liquid
 		return constraintBuilder.GetBinderAddress(variableName);
 	}
 
-	ResultType VariablesEnvironment::addInformation(const std::string& blockName, const std::string& variableName, bool information)
-	{
-		if (RefinementUtils::ContainsKey(booleanInformation[blockName], variableName))
-		{
-			if (booleanInformation[blockName][variableName] != information)
-			{
-				return ResultType::Error("Added contrary information for variable: "s + variableName + " in block: "s + blockName);
-			}
-
-			return ResultType::Success();
-		}
-
-		if (!RefinementUtils::ContainsKey(createdInfoBinders[variableName], information))
-		{
-			std::string currentVarMapping = GetVariableName(variableName);
-			std::string varUniqueConstraintName = getNextVariableName(variableName);
-			std::string qualifier = information ? "__value"s : "~__value"s;
-
-			{
-				auto createBinderRes = constraintBuilder.CreateBinderWithConstraints(varUniqueConstraintName, currentVarMapping, variableTypes.at(variableName), { qualifier });
-				if (!createBinderRes.Succeeded) { return createBinderRes; }
-			}
-
-			createdInfoBinders[variableName][information] = varUniqueConstraintName;
-		}
-
-		booleanInformation[blockName][variableName] = information;
-		return ResultType::Success();
-	}
-
-	ResultType VariablesEnvironment::getInformationBinders(const std::string& blockName, std::vector<std::string>& informationBinders)
-	{
-		std::vector<std::string> previousBlocks;
-		{
-			auto prevBlocksRes = functionBlockGraph.GetPreviousBlocks(blockName, previousBlocks);
-			if (!prevBlocksRes.Succeeded) { return prevBlocksRes; }
-		}
-
-		if (previousBlocks.size() > 0)
-		{
-			std::set<std::string> variableNames = RefinementUtils::GetKeysSet(booleanInformation[previousBlocks[0]]);
-			for (unsigned i = 1; i < variableNames.size(); i++)
-			{
-				auto currBlockVars = RefinementUtils::GetKeysSet(booleanInformation[previousBlocks[i]]);
-				std::set<std::string> intersectedVariables;
-				std::set_intersection(variableNames.begin(), variableNames.end(), currBlockVars.begin(), currBlockVars.end(), std::inserter(intersectedVariables, intersectedVariables.begin()));
-				variableNames = intersectedVariables;
-			}
-
-			for (const auto& variableName : variableNames)
-			{
-				bool allHaveSameValue = std::all_of(previousBlocks.begin(), previousBlocks.end(), [&](std::string block) {
-					return booleanInformation[block][variableName] == booleanInformation[previousBlocks[0]][variableName];
-				});
-
-				if (allHaveSameValue)
-				{
-					auto variableVal = booleanInformation[previousBlocks[0]][variableName];
-					if (RefinementUtils::ContainsKey(booleanInformation[blockName], variableName))
-					{
-						if (booleanInformation[blockName][variableName] != variableVal)
-						{
-							return ResultType::Error("Added contrary information for variable: "s + variableName + " in block: "s + blockName);
-						}
-					}
-					informationBinders.emplace_back(createdInfoBinders[variableName][variableVal]);
-				}
-			}
-		}
-
-		auto& currentBlockInfo = booleanInformation[blockName];
-		for (const auto& varInfo : currentBlockInfo)
-		{
-			const auto& varName = varInfo.first;
-			auto info = varInfo.second;
-			informationBinders.emplace_back(createdInfoBinders[varName][info]);
-		}
-
-		return ResultType::Success();
-	}
-
 	std::vector<std::string> VariablesEnvironment::getBlockBinders(const std::string& blockName)
 	{
 		auto currBinders = variablesValuesPerBlock[blockName];
 		std::vector<std::string> ret(currBinders.begin(), currBinders.end());
-		getInformationBinders(blockName, ret);
+		ret.emplace_back("__block__"s + blockName);
 		return ret;
 	}
 
@@ -232,48 +151,19 @@ namespace liquid
 		return createVariable(variable, newVarName, variableTypes.at(variable), mutableVariableConstraints[variable], expression);
 	}
 
-	//We now have to check if we can add branch information to the target. This can happen only in certain cases.
-	//Consider 4 basic structures
-	//
-	// 1)
-	// if(cond) {
-	//     condSuccessCode();
-	// }
-	// afterIfCode();
-	//
-	// 2)
-	// if(cond) {
-	//     condSuccessCode();
-	// } else {
-	//     condFailCode();
-	// }
-	// afterIfCode();
-	//
-	// 3)
-	// do {
-	//     loopCode();
-	// } while(cond);
-	// afterLoopCode();
-	//
-	// 4)
-	// while(cond) {
-	//     loopCode();
-	// };
-	//
-	// afterLoopCode();
-	//
-	//In each case the currentBlock, is the block with the branch. 
-	//	For instance the block before the 'if' keyword for 1 and 2, and the block before the 'while' keyword for 3 and 4
-	//Looking at these 4 structures, we should consider when we can "cond=true" or "cond=false" to the various blocks
-	//Note: In every case, we are adding info, there is also a block which we are trying to add the contrary information to aka the contrary block
-	//	For example in structure 1, when we are trying to add "cond=true", to condSuccessCode, the contrary block is afterIfCode
-	//		In structure 1, when we are trying to add "cond=false", to afterIfCode, the contrary block is condSuccessCode
-	//	Similarly for structures 2,3,4
-	//This gives us the following rules
-	//if currentBlock doesn't dominate the targetBlock, don't add the information
-	//if there is a path from the contraryBlock to the targetBlock, don't add the information
-	//else add the information
-	ResultType VariablesEnvironment::AddBranchInformation(const std::string& booleanVariable, const bool variableValue, const std::string& targetBlock, const std::string& contraryBlock)
+	ResultType VariablesEnvironment::AddJumpInformation(const std::string& targetBlock)
+	{
+		std::string transitionGuardName = "__transition__"s + currentBlockName + "__"s + targetBlock;
+
+		{
+			auto createBinderRes = constraintBuilder.CreateBinderWithConstraints(transitionGuardName, FixpointType::GetBoolType(), { "true"s });
+			if (!createBinderRes.Succeeded) { return createBinderRes; }
+		}
+
+		return ResultType::Success();
+	}
+
+	ResultType VariablesEnvironment::AddBranchInformation(const std::string& booleanVariable, const bool variableValue, const std::string& targetBlock)
 	{
 		if (!RefinementUtils::ContainsKey(variableTypes, booleanVariable))
 		{
@@ -285,31 +175,12 @@ namespace liquid
 			return ResultType::Error("Expected boolean type for variable: "s + booleanVariable);
 		}
 
-		bool strictlyDominates;
-		{
-			auto domRes = functionBlockGraph.StrictlyDominates(currentBlockName, targetBlock, strictlyDominates);
-			if (!domRes.Succeeded) { return domRes; }
-		}
-
-		if (!strictlyDominates)
-		{
-			return ResultType::Success();
-		}
-
-		bool pathExists;
-		{
-			auto findPathRes = functionBlockGraph.PathBetweenBlocksExistsExcludingBlock(contraryBlock, targetBlock, currentBlockName, pathExists);
-			if (!findPathRes.Succeeded) { return findPathRes; }
-		}
-
-		if (pathExists)
-		{
-			return ResultType::Success();
-		}
+		const std::string assignedExpr = "__value <=> "s + (variableValue ? ""s : "~"s)  + booleanVariable;
+		const std::string transitionGuardName = "__transition__"s + currentBlockName + "__"s + targetBlock;
 
 		{
-			auto addInfoRes = addInformation(targetBlock, booleanVariable, variableValue);
-			if (!addInfoRes.Succeeded) { return addInfoRes; }
+			auto createBinderRes = constraintBuilder.CreateBinderWithConstraints(transitionGuardName, FixpointType::GetBoolType(), { assignedExpr });
+			if (!createBinderRes.Succeeded) { return createBinderRes; }
 		}
 
 		return ResultType::Success();
@@ -440,6 +311,32 @@ namespace liquid
 		return ResultType::Success();
 	}
 
+	ResultType VariablesEnvironment::getBlockBindersForPhiNode(const std::string& previousBlock, const std::string& blockName, const std::string& mappedVariableName, std::vector<std::string>& binders)
+	{
+		binders = getBlockBinders(previousBlock);
+
+		//strengthen the environment with the transition edge
+		std::string transitionGuardName = "__transition__"s + previousBlock + "__"s + currentBlockName;
+		binders.emplace_back(transitionGuardName);
+
+		std::string predecessorEntryGuard;
+		{
+			auto getPredEntryRes = getBlockGuard(previousBlock, predecessorEntryGuard);
+			if (!getPredEntryRes.Succeeded) { return getPredEntryRes; }
+		}
+
+		std::string phiNodeTransitionGuard = predecessorEntryGuard + " && "s + transitionGuardName;
+		std::string phiNodeGuardName = "__phi__"s + mappedVariableName + "_"s + previousBlock;
+
+		{
+			auto createBinderRes = constraintBuilder.CreateBinderWithConstraints(phiNodeGuardName, FixpointType::GetBoolType(), { phiNodeTransitionGuard });
+			if (!createBinderRes.Succeeded) { return createBinderRes; }
+		}
+
+		binders.emplace_back(phiNodeGuardName);
+		return ResultType::Success();
+	}
+
 	ResultType VariablesEnvironment::createPhiNodeWithoutCreatedBinders(const std::string& variable, const std::string& mappedVariableName, const FixpointType& type, const std::vector<std::string>& sourceVariableNames, const std::vector<std::string>& previousBlocks)
 	{
 		if (sourceVariableNames.size() != previousBlocks.size())
@@ -456,7 +353,12 @@ namespace liquid
 		for (size_t i = 0, csize = previousBlocks.size(); i < csize; i++)
 		{
 			auto& previousBlock = previousBlocks[i];
-			auto blockVariablesAndInfo = getBlockBinders(previousBlock);
+			std::vector<std::string> blockVariablesAndInfo;
+			{
+				auto getBindersRes = getBlockBindersForPhiNode(previousBlock, currentBlockName, mappedVariableName, blockVariablesAndInfo);
+				if (!getBindersRes.Succeeded) { return getBindersRes; }
+			}
+
 			auto blockVariableMapping = sourceVariableNames[i];
 			//ensure that the future binder is part of the info
 			if (!RefinementUtils::Contains(blockVariablesAndInfo, blockVariableMapping))
@@ -520,6 +422,112 @@ namespace liquid
 		return createPhiNodeInternal(variable, mappedVariableName, type, sourceVariableNames, previousBlocks);
 	}
 
+	ResultType VariablesEnvironment::getBlockGuard(const std::string& blockName, std::string& blockGuard)
+	{
+		if (RefinementUtils::ContainsKey(cachedBlockGuards, blockName))
+		{
+			blockGuard = cachedBlockGuards[blockName];
+			return ResultType::Success();
+		}
+
+		if (blockName == functionBlockGraph.GetStartingBlockName())
+		{
+			blockGuard = "true";
+		}
+		else
+		{
+			std::vector<std::string> predecessors;
+			{
+				auto getPredRes = functionBlockGraph.GetPreviousBlocks(blockName, predecessors);
+				if (!getPredRes.Succeeded) { return getPredRes; }
+			}
+
+			std::vector<std::string> predecessorTransitionGuards;
+			for (const auto& predecessor : predecessors)
+			{
+				std::string predecessorEntryGuard;
+				{
+					auto getPredEntryRes = getBlockGuard(predecessor, predecessorEntryGuard);
+					if (!getPredEntryRes.Succeeded) { return getPredEntryRes; }
+				}
+
+				std::string transitionGuardName = "__transition__"s + predecessor + "__"s + blockName;
+				predecessorTransitionGuards.emplace_back("("s + predecessorEntryGuard + " && "s + transitionGuardName + ")"s);
+			}
+
+			blockGuard = "("s + RefinementUtils::StringJoin(" || ", predecessorTransitionGuards) + ")"s;
+		}
+
+		cachedBlockGuards[blockName] = blockGuard;
+		return ResultType::Success();
+	}
+
+	ResultType VariablesEnvironment::addVariableToBlockAndSuccessors(const std::string& blockName, const std::string& transitionGuardName)
+	{
+		std::vector<std::string> successors;
+		{
+			auto getSuccRes = functionBlockGraph.GetAllSuccessorBlockNames(blockName, successors);
+			if (!getSuccRes.Succeeded) { return getSuccRes; }
+		};
+
+		for (const auto& successor : successors)
+		{
+			variablesMappingsPerBlock[successor][transitionGuardName] = transitionGuardName;
+			variablesValuesPerBlock[successor].emplace(transitionGuardName);
+		}
+
+		return ResultType::Success();
+	}
+
+	ResultType VariablesEnvironment::initializeBlockGuards()
+	{
+		std::vector<std::string> blockNames;
+		{
+			auto getBlockRes = functionBlockGraph.GetAllBlockNames(blockNames);
+			if (!getBlockRes.Succeeded) { return getBlockRes; }
+		}
+
+		for (const auto& blockName : blockNames)
+		{
+			std::vector<std::string> successors;
+			{
+				auto getSuccRes = functionBlockGraph.GetSuccessorBlocks(blockName, successors);
+				if (!getSuccRes.Succeeded) { return getSuccRes; }
+			}
+
+			for(const auto& successor : successors)
+			{
+				std::string transitionGuardName = "__transition__"s + blockName + "__"s + successor;
+				{
+					auto createBinderRes = constraintBuilder.CreateFutureBinder(transitionGuardName, FixpointType::GetBoolType());
+					if (!createBinderRes.Succeeded) { return createBinderRes; }
+				}
+
+				{
+					auto addVarRes = addVariableToBlockAndSuccessors(successor, transitionGuardName);
+					if (!addVarRes.Succeeded) { return addVarRes; }
+				}
+			}
+		}
+
+		for (const auto& blockName : blockNames)
+		{
+			std::string blockGuardName = "__block__"s + blockName;
+			std::string blockGuard;
+			{
+				auto getBlockGuardRes = getBlockGuard(blockName, blockGuard);
+				if (!getBlockGuardRes.Succeeded) { return getBlockGuardRes; }
+			}
+
+			auto createBinderRes = constraintBuilder.CreateBinderWithConstraints(blockGuardName, FixpointType::GetBoolType(), { blockGuard });
+			if (!createBinderRes.Succeeded) { return createBinderRes; }
+
+			//Don't add block guard to the variablesMapping, as it is added in the getBinders functions
+		}
+
+		return ResultType::Success();
+	}
+
 	ResultType VariablesEnvironment::endBlock(const std::string& blockName)
 	{
 		auto& phiNodeObligationsForBlock = phiNodeObligations[blockName];
@@ -540,7 +548,12 @@ namespace liquid
 
 	ResultType VariablesEnvironment::StartBlock(const std::string& blockName)
 	{
-		if (currentBlockName != ""s)
+		if (currentBlockName == ""s)
+		{
+			auto initRes = initializeBlockGuards();
+			if (!initRes.Succeeded) { return initRes; }
+		}
+		else
 		{
 			auto endBlockRes = endBlock(currentBlockName);
 			if (!endBlockRes.Succeeded) { return endBlockRes; }
@@ -610,5 +623,4 @@ namespace liquid
 
 		return constraintBuilder.ToStringOrFailure(output);
 	}
-
 }

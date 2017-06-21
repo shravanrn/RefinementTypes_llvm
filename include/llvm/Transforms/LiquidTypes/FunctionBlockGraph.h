@@ -15,8 +15,9 @@ namespace liquid
 		virtual ResultType GetSuccessorBlocks(const std::string& blockName, std::vector<std::string>& successorBlocks) const = 0;
 		virtual ResultType StrictlyDominates(const std::string& firstblockName, const std::string& secondBlockName, bool& result) const = 0;
 
-		ResultType PathBetweenBlocksExistsExcludingBlock(const std::string& fromBlock, const std::string& toBlock, const std::string& excludingBlock, bool& pathExists) const;
 		ResultType GetPreviousBlocks(const std::string& blockName, std::vector<std::string>& previousBlocks) const;
+		ResultType GetAllBlockNames(std::vector<std::string>& blocks) const;
+		ResultType GetAllSuccessorBlockNames(const std::string startingBlock, std::vector<std::string>& blocks) const;
 	};
 }
 
