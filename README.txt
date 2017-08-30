@@ -21,7 +21,8 @@ After this,
 	If Windows, build with Visual studio
 	If Unix like system, build with make
 
-
+Examples
+--------
 Examples provided in the examples folder
 examples_refinement/safe - Examples of verifications that show that a piece of code is SAFE
 examples_refinement/unsafe - Examples of verifications that show that a piece of code is UNSAFE
@@ -35,6 +36,13 @@ To get the value for full/Path/To/fixpoint
 
 Note, a generally useful command is to compile in O0 and output llvm code instead of a binary
 buildfolder/clang -S -O0 -mllvm -fixpoint-path=full/Path/To/fixpoint -emit-llvm examples_refinement/safe/intPointerTest.c
+
+The core constraint generator
+-----------------------------
+This core constraints generation is a language neutral library which is located in RefinementTypes_llvm/lib/Transforms/LiquidTypes/VariablesEnvironment.cpp
+
+An example of using this outside LLVM is given in 
+RefinementTypes_llvm/tools/liquidTypes-varibleEnvLib-example/VaribleEnvLibExample.cpp
 
 Low Level Virtual Machine (LLVM)
 ================================
