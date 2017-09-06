@@ -53,7 +53,12 @@ namespace antlrcpp {
     #endif
   }
 
-  inline auto utf8_to_utf32(const char* first, const char* last)
+  inline auto utf8_to_utf32(const char* first, const char* last) ->
+    #if _MSC_VER > 1900 && _MSC_VER < 2000
+      std::u32string
+    #else
+      decltype(antlrcpp::utfConverter.from_bytes(first, last))
+    #endif
   {
     #if _MSC_VER > 1900 && _MSC_VER < 2000
       auto r = antlrcpp::utfConverter.from_bytes(first, last);
