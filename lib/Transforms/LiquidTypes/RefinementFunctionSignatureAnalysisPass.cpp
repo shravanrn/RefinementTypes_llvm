@@ -5,34 +5,34 @@
 
 using namespace liquid;
 
-namespace llvm {
+namespace {
 
-	namespace {
-
-		void runRefinementAnalysis(Function &F, RefinementFunctionSignatureInfo& r)
+	void runRefinementAnalysis(Function &F, RefinementFunctionSignatureInfo& r)
+	{
+		auto metadata = F.getMetadata("refinement");
+		//no refinement data
+		if (metadata == nullptr)
 		{
-			auto metadata = F.getMetadata("refinement");
-			//no refinement data
-			if (metadata == nullptr)
-			{
-				return;
-			}
+			return;
+		}
 
-			{
-				ResultType getRefData = RefinementMetadata_Raw::Extract(F, r.FnRefinementMetadata_Raw);
-				if (!getRefData.Succeeded) { report_fatal_error(getRefData.ErrorMsg); }
-			}
+		{
+			ResultType getRefData = RefinementMetadata_Raw::Extract(F, r.FnRefinementMetadata_Raw);
+			if (!getRefData.Succeeded) { report_fatal_error(getRefData.ErrorMsg); }
+		}
 
-			{
-				ResultType getRefData = RefinementMetadata::ParseMetadata(r.FnRefinementMetadata_Raw, r.ParsedFnRefinementMetadata);
-				if (!getRefData.Succeeded) { report_fatal_error(getRefData.ErrorMsg); }
-			}
+		{
+			ResultType getRefData = RefinementMetadata::ParseMetadata(r.FnRefinementMetadata_Raw, r.ParsedFnRefinementMetadata);
+			if (!getRefData.Succeeded) { report_fatal_error(getRefData.ErrorMsg); }
 		}
 	}
+}
 
-	char RefinementFunctionSignatureAnalysisPass::ID = 0;
-	INITIALIZE_PASS_BEGIN(RefinementFunctionSignatureAnalysisPass, "refinementSignatureAnalysis", "Refinement Signature constraints Construction", true, true)
-	INITIALIZE_PASS_END(RefinementFunctionSignatureAnalysisPass, "refinementSignatureAnalysis", "Refinement Signature constraints Construction", true, true)
+char RefinementFunctionSignatureAnalysisPass::ID = 0;
+INITIALIZE_PASS_BEGIN(RefinementFunctionSignatureAnalysisPass, "refinementSignatureAnalysis", "Refinement Signature constraints Construction", true, true)
+INITIALIZE_PASS_END(RefinementFunctionSignatureAnalysisPass, "refinementSignatureAnalysis", "Refinement Signature constraints Construction", true, true)
+
+namespace llvm {
 
 	bool RefinementFunctionSignatureAnalysisPass::runOnFunction(Function &F) {
 

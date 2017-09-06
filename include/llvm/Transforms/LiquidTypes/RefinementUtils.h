@@ -7,6 +7,8 @@
 #include <functional>
 #include <set>
 #include <iterator>
+#include <algorithm>
+#include <sstream>
 
 namespace liquid {
 
@@ -109,7 +111,7 @@ namespace liquid {
 		static inline std::vector<T1> GetKeys(const std::map<T1, T2>& m)
 		{
 			std::vector<T1> ret;
-			std::transform(m.begin(), m.end(), std::back_inserter(ret), [](const std::map<T1, T2>::value_type& val) { return val.first; });
+			std::transform(m.begin(), m.end(), std::back_inserter(ret), [](const typename std::map<T1, T2>::value_type& val) { return val.first; });
 			return ret;
 		}
 
@@ -117,7 +119,7 @@ namespace liquid {
 		static inline std::set<T1> GetKeysSet(const std::map<T1, T2>& m)
 		{
 			std::set<T1> ret;
-			std::transform(m.begin(), m.end(), std::inserter(ret, ret.begin()), [](const std::map<T1, T2>::value_type& val) { return val.first; });
+			std::transform(m.begin(), m.end(), std::inserter(ret, ret.begin()), [](const typename std::map<T1, T2>::value_type& val) { return val.first; });
 			return ret;
 		}
 
@@ -125,7 +127,7 @@ namespace liquid {
 		static inline std::vector<T2> GetValues(const std::map<T1, T2>& m)
 		{
 			std::vector<T2> ret;
-			std::transform(m.begin(), m.end(), std::back_inserter(ret), [](const std::map<T1, T2>::value_type& val) { return val.second; });
+			std::transform(m.begin(), m.end(), std::back_inserter(ret), [](const typename std::map<T1, T2>::value_type& val) { return val.second; });
 			return ret;
 		}
 	};

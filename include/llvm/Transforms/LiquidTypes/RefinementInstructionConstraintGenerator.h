@@ -31,7 +31,7 @@ namespace liquid {
 		ResultType getBinderName(const llvm::Value& value, std::string& binderName);
 		std::string getSignedIntFromUnsignedRepresentation(const std::string& unsignedValStr, unsigned int width);
 
-		std::string RefinementInstructionConstraintGenerator::GetIntegerOperatorExpression(
+		std::string GetIntegerOperatorExpression(
 			const BinaryOperator& binaryOpInst,
 			const std::string& left,
 			const std::string& operatorString,

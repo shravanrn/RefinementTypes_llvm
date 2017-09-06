@@ -7,7 +7,7 @@
 class NODISCARD ResultType
 {
 private:
-	ResultType(bool succeeded, std::string errorMsg) : Succeeded(succeeded), ErrorMsg(errorMsg) {}
+	ResultType(bool succeeded, std::string errorMsg) : ErrorMsg(errorMsg),Succeeded(succeeded) {}
 
 public:
 

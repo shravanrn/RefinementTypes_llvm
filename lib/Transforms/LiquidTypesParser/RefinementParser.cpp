@@ -45,12 +45,12 @@ namespace {
 				//get the first binary operator token
 				tree::TerminalNode* node = context->getToken(RefinementGrammarLexer::BINARYOPERATOR, 0);
 				if (node == nullptr) {
-					throw new std::exception("Could not retrieve the node for % binary operator");
+					throw new std::runtime_error("Could not retrieve the node for % binary operator");
 				}
 
 				Token* token = node->getSymbol();
 				if (token == nullptr) {
-					throw new std::exception("Could not retrieve the token for % binary operator");
+					throw new std::runtime_error("Could not retrieve the token for % binary operator");
 				}
 
 				Rewriter->replace(token, "mod"s);
@@ -81,12 +81,12 @@ namespace {
 				//get the first variable token
 				tree::TerminalNode* node = context->getToken(RefinementGrammarLexer::VARIABLE, 0);
 				if (node == nullptr) {
-					throw new std::exception("Could not retrieve the node for variable");
+					throw new std::runtime_error("Could not retrieve the node for variable");
 				}
 
 				Token* token = node->getSymbol();
 				if (token == nullptr) {
-					throw new std::exception("Could not retrieve the token for variable");
+					throw new std::runtime_error("Could not retrieve the token for variable");
 				}
 
 				Rewriter->replace(token, newVariableName);

@@ -16,8 +16,8 @@ namespace liquid {
 			const std::function<RefinementFunctionSignatureInfo*(llvm::Function&)> getAnalysisFunc
 		) : ContainsAnalysisFunc(containsAnalysisFunc), GetAnalysisFunc(getAnalysisFunc) {}
 
-		const bool ContainsAnalysisForFunction(llvm::Function& function) const;
-		const RefinementFunctionSignatureInfo* GetAnalysisForFunction(llvm::Function& function) const;
+		bool ContainsAnalysisForFunction(llvm::Function& function) const;
+		RefinementFunctionSignatureInfo* GetAnalysisForFunction(llvm::Function& function) const;
 	};
 }
 

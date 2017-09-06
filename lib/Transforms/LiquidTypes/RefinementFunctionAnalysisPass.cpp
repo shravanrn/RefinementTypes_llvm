@@ -9,126 +9,125 @@
 
 using namespace liquid;
 
-namespace llvm {
+namespace {
 
-	namespace {
+	class LLVMFunctionBlockGraph : public FunctionBlockGraph
+	{
+		Function& F;
+		const DominatorTree& dominatorTree;
 
-		class LLVMFunctionBlockGraph : public FunctionBlockGraph
+		const llvm::BasicBlock* getBasicBlockRef(const std::string& blockName) const
 		{
-			Function& F;
-			const DominatorTree& dominatorTree;
-
-			const llvm::BasicBlock* getBasicBlockRef(const std::string& blockName) const
+			for (const auto& block : F)
 			{
-				for (const auto& block : F)
+				if (block.getName().str() == blockName)
 				{
-					if (block.getName().str() == blockName)
-					{
-						return &block;
-					}
+					return &block;
 				}
-
-				return nullptr;
 			}
 
-		public:
-			LLVMFunctionBlockGraph(Function &_F, const DominatorTree& _dominatorTree) : F(_F), dominatorTree(_dominatorTree) {}
+			return nullptr;
+		}
 
-			// Inherited via FunctionBlockGraph
-			std::string GetStartingBlockName() const override
-			{
-				return "entry"s;
-			}
-			
-			ResultType GetSuccessorBlocks(const std::string& blockName, std::vector<std::string>& successorBlocks) const override
-			{
-				const BasicBlock* blockRef = getBasicBlockRef(blockName);
-				if (blockRef == nullptr)
-				{
-					return ResultType::Error("Block : "s + blockName + " not found"s);
-				}
+	public:
+		LLVMFunctionBlockGraph(Function &_F, const DominatorTree& _dominatorTree) : F(_F), dominatorTree(_dominatorTree) {}
 
-				auto successors = blockRef->getTerminator()->successors();
-				
-				for (const auto& successor : successors)
-				{
-					successorBlocks.push_back(successor->getName().str());
-				}
-
-				return ResultType::Success();
-			}
-			
-			ResultType StrictlyDominates(const std::string& firstblockName, const std::string& secondBlockName, bool &result) const override
-			{
-				const BasicBlock* firstBlockRef = getBasicBlockRef(firstblockName);
-				if (firstBlockRef == nullptr)
-				{
-					return ResultType::Error("Block : "s + firstblockName + " not found"s);
-				}
-
-				const BasicBlock* secondBlockRef = getBasicBlockRef(secondBlockName);
-				if (secondBlockRef == nullptr)
-				{
-					return ResultType::Error("Block : "s + secondBlockName + " not found"s);
-				}
-
-				result = dominatorTree.properlyDominates(firstBlockRef, secondBlockRef);
-				return ResultType::Success();
-			}
-		};
-
-		void runRefinementAnalysis(Function &F, 
-			const llvm::DominatorTree& dominatorTree,
-			const llvm::LoopInfo& loopInfo, 
-			llvm::AAResults& aliasAnalysis,
-			const AnalysisRetriever& analysisRetriever, 
-			RefinementFunctionInfo& r)
+		// Inherited via FunctionBlockGraph
+		std::string GetStartingBlockName() const override
 		{
-			auto metadata = F.getMetadata("refinement");
-			//no refinement data
-			if (metadata == nullptr)
+			return "entry"s;
+		}
+		
+		ResultType GetSuccessorBlocks(const std::string& blockName, std::vector<std::string>& successorBlocks) const override
+		{
+			const BasicBlock* blockRef = getBasicBlockRef(blockName);
+			if (blockRef == nullptr)
 			{
-				return;
+				return ResultType::Error("Block : "s + blockName + " not found"s);
 			}
 
-			r.RefinementDataFound = true;
-
-			{
-				if (!analysisRetriever.ContainsAnalysisForFunction(F)) { report_fatal_error("Refinement Types : Expected to find signature analysis"); }
-				r.SignatureMetadata = analysisRetriever.GetAnalysisForFunction(F);
-			}
+			auto successors = blockRef->getTerminator()->successors();
 			
-			//if we have the function body
-			if (!F.isDeclaration())
+			for (const auto& successor : successors)
 			{
-				LLVMFunctionBlockGraph llvmFunctionBlockGraph(F, dominatorTree);
-				r.ConstraintGenerator = std::make_unique<RefinementConstraintGenerator>(F, llvmFunctionBlockGraph);
+				successorBlocks.push_back(successor->getName().str());
+			}
 
-				{
-					ResultType constraintRes = r.ConstraintGenerator->BuildConstraintsFromSignature(r.SignatureMetadata->ParsedFnRefinementMetadata);
-					if (!constraintRes.Succeeded) { report_fatal_error(constraintRes.ErrorMsg); }
-				}
+			return ResultType::Success();
+		}
+		
+		ResultType StrictlyDominates(const std::string& firstblockName, const std::string& secondBlockName, bool &result) const override
+		{
+			const BasicBlock* firstBlockRef = getBasicBlockRef(firstblockName);
+			if (firstBlockRef == nullptr)
+			{
+				return ResultType::Error("Block : "s + firstblockName + " not found"s);
+			}
 
-				{
-					ResultType constraintRes = r.ConstraintGenerator->BuildConstraintsFromInstructions(r.SignatureMetadata->ParsedFnRefinementMetadata, aliasAnalysis, analysisRetriever);
-					if (!constraintRes.Succeeded) { report_fatal_error(constraintRes.ErrorMsg); }
-				}
+			const BasicBlock* secondBlockRef = getBasicBlockRef(secondBlockName);
+			if (secondBlockRef == nullptr)
+			{
+				return ResultType::Error("Block : "s + secondBlockName + " not found"s);
+			}
 
-				{
-					ResultType constraintRes = r.ConstraintGenerator->CaptureLoopConstraints(loopInfo);
-					if (!constraintRes.Succeeded) { report_fatal_error(constraintRes.ErrorMsg); }
-				}
+			result = dominatorTree.properlyDominates(firstBlockRef, secondBlockRef);
+			return ResultType::Success();
+		}
+	};
+
+	void runRefinementAnalysis(Function &F, 
+		const llvm::DominatorTree& dominatorTree,
+		const llvm::LoopInfo& loopInfo, 
+		llvm::AAResults& aliasAnalysis,
+		const AnalysisRetriever& analysisRetriever, 
+		RefinementFunctionInfo& r)
+	{
+		auto metadata = F.getMetadata("refinement");
+		//no refinement data
+		if (metadata == nullptr)
+		{
+			return;
+		}
+
+		r.RefinementDataFound = true;
+
+		{
+			if (!analysisRetriever.ContainsAnalysisForFunction(F)) { report_fatal_error("Refinement Types : Expected to find signature analysis"); }
+			r.SignatureMetadata = analysisRetriever.GetAnalysisForFunction(F);
+		}
+		
+		//if we have the function body
+		if (!F.isDeclaration())
+		{
+			LLVMFunctionBlockGraph llvmFunctionBlockGraph(F, dominatorTree);
+			r.ConstraintGenerator = std::make_unique<RefinementConstraintGenerator>(F, llvmFunctionBlockGraph);
+
+			{
+				ResultType constraintRes = r.ConstraintGenerator->BuildConstraintsFromSignature(r.SignatureMetadata->ParsedFnRefinementMetadata);
+				if (!constraintRes.Succeeded) { report_fatal_error(constraintRes.ErrorMsg); }
+			}
+
+			{
+				ResultType constraintRes = r.ConstraintGenerator->BuildConstraintsFromInstructions(r.SignatureMetadata->ParsedFnRefinementMetadata, aliasAnalysis, analysisRetriever);
+				if (!constraintRes.Succeeded) { report_fatal_error(constraintRes.ErrorMsg); }
+			}
+
+			{
+				ResultType constraintRes = r.ConstraintGenerator->CaptureLoopConstraints(loopInfo);
+				if (!constraintRes.Succeeded) { report_fatal_error(constraintRes.ErrorMsg); }
 			}
 		}
 	}
+}
 
-	char RefinementFunctionAnalysisPass::ID = 0;
-	INITIALIZE_PASS_BEGIN(RefinementFunctionAnalysisPass, "refinementAnalysis", "Refinement constraints Construction", true, true)
-	INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-	INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-	INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
-	INITIALIZE_PASS_DEPENDENCY(RefinementFunctionSignatureAnalysisPass)
-	INITIALIZE_PASS_END(RefinementFunctionAnalysisPass, "refinementAnalysis", "Refinement constraints Construction", true, true)
+char RefinementFunctionAnalysisPass::ID = 0;
+INITIALIZE_PASS_BEGIN(RefinementFunctionAnalysisPass, "refinementAnalysis", "Refinement constraints Construction", true, true)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(RefinementFunctionSignatureAnalysisPass)
+INITIALIZE_PASS_END(RefinementFunctionAnalysisPass, "refinementAnalysis", "Refinement constraints Construction", true, true)
+namespace llvm {
 
 	bool RefinementFunctionAnalysisPass::runOnModule(Module &M) {
 		std::map<std::string, RefinementFunctionSignatureInfo> sigInfo;

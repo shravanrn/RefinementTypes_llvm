@@ -4,12 +4,12 @@
 
 namespace liquid
 {
-	const bool AnalysisRetriever::ContainsAnalysisForFunction(llvm::Function& function) const
+	bool AnalysisRetriever::ContainsAnalysisForFunction(llvm::Function& function) const
 	{
 		return ContainsAnalysisFunc(function);
 	}
 
-	const RefinementFunctionSignatureInfo* AnalysisRetriever::GetAnalysisForFunction(llvm::Function& function) const
+	RefinementFunctionSignatureInfo* AnalysisRetriever::GetAnalysisForFunction(llvm::Function& function) const
 	{
 		return GetAnalysisFunc(function);
 	}

@@ -38,6 +38,15 @@ namespace liquid
 		return ret;
 	}
 
+	void insertOrAssignVarType(std::map<std::string, FixpointType>& mapToUse, const std::string& variable, const FixpointType& type)
+	{
+		auto search = mapToUse.find(variable);
+		if(search != mapToUse.end()) {
+			mapToUse.erase(search);
+	    }
+	    mapToUse.emplace(variable, type);
+    }
+
 	ResultType VariablesEnvironment::createIOVariable(
 		const std::string& variable,
 		const FixpointType& type,
@@ -52,7 +61,7 @@ namespace liquid
 			if (!createBinderRes.Succeeded) { return createBinderRes; }
 		}
 
-		variableTypes.insert_or_assign(variable, type);
+		insertOrAssignVarType(variableTypes, variable, type);
 		variablesMappingsPerBlock[currentBlockName][variable] = mappedVariableName;
 		variablesValuesPerBlock[currentBlockName].emplace(mappedVariableName);
 
@@ -119,7 +128,7 @@ namespace liquid
 			if (!addConstRes.Succeeded) { return addConstRes; }
 		}
 
-		variableTypes.insert_or_assign(variable, type);
+		insertOrAssignVarType(variableTypes, variable, type);
 		variablesMappingsPerBlock[currentBlockName][variable] = mappedVariableName;
 		variablesValuesPerBlock[currentBlockName].emplace(mappedVariableName);
 
