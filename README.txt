@@ -2,48 +2,64 @@ My notes
 ========
 This repository modifies the llvm compiler to add a pass supporting the implementation of refinement types
 
+External libraries required 
+============================
 Install the z3 solver https://github.com/Z3Prover/z3/releases
+To test that z3 is installed correctly and added to the path, run the command 'z3 -h' in terminal/command prompt
+You should see output similar to 'Z3 [version ...]. (C) Copyright ...'
+
 Install liquid-fixpoint https://github.com/ucsd-progsys/liquid-fixpoint
+To test that fixpoint is installed correctly and added to the path, run the command 'z3 -h' in terminal/command prompt
+You should see output similar to 'fixpoint Copyright ...'
 
-Follow instructions on how to build clang and llvm from https://clang.llvm.org/get_started.html
-Except use the following code repos for clang and llvm instead of those mentioned in the link
 
-Checkout
+Building
+========
+The original instructions on how to build clang and llvm from https://clang.llvm.org/get_started.html work fine, except use the following code repos for clang and llvm instead of those mentioned in the link. 
+
+In short, the get_started link asks you to do the following
+
+1) Checkout
 --------
 Checkout https://github.com/shravanrn/RefinementTypes_llvm to a folder 'llvm'
 Checkout https://github.com/shravanrn/RefinementTypes_clang to a the folder 'llvm/tools'
 
-Make build
+2) Make build
 -----------
 Create a new directory for the build
-Run cmake to generate the build for you platform
+Run cmake to generate the build for you platform. More about CMake (https://llvm.org/docs/CMake.html) 
 After this,
 	If Windows, build with Visual studio
 	If Unix like system, build with make
 
-Examples
---------
-Examples provided in the examples folder
+You have now compiled a custom version of clang that includes the support for refinement verfication.
+
+Testing
+========
+Examples of using refinements provided in the examples folder
 examples_refinement/safe - Examples of verifications that show that a piece of code is SAFE
 examples_refinement/unsafe - Examples of verifications that show that a piece of code is UNSAFE
 
 To run an example, compile with the following command
 buildfolder/clang -mllvm -fixpoint-path=full/Path/To/fixpoint examples_refinement/safe/intPointerTest.c
 
-To get the value for full/Path/To/fixpoint
+Note: To get the value for full/Path/To/fixpoint
 	On windows, run 'where fixpoint' on the command prompt
 	On Unix like systems, run 'which fixpoint' in bash
 
-Note, a generally useful command is to compile in O0 and output llvm code instead of a binary
+Note: a generally useful command is to compile in O0 and output llvm code instead of a binary
 buildfolder/clang -S -O0 -mllvm -fixpoint-path=full/Path/To/fixpoint -emit-llvm examples_refinement/safe/intPointerTest.c
 
-The core constraint generator
------------------------------
-This core constraints generation is a language neutral library which is located in RefinementTypes_llvm/lib/Transforms/LiquidTypes/VariablesEnvironment.cpp
+The core constraint generator aka VariablesEnvironmentLib
+==========================================================
+This core constraints generation is a language neutral library which allows the user to declare variables and express constraints is located in RefinementTypes_llvm/lib/Transforms/LiquidTypes/VariablesEnvironment.cpp
 
 An example of using this outside LLVM is given in 
 RefinementTypes_llvm/tools/liquidTypes-varibleEnvLib-example/VaribleEnvLibExample.cpp
 
+This is the library used in an LLVM pass that allows to generate constraints in order to verify refinements specified by the user.
+
+--------------------------------------------Original Readme------------------------------------------------------------------------
 Low Level Virtual Machine (LLVM)
 ================================
 
