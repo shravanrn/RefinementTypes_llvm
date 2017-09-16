@@ -7,7 +7,7 @@
 using namespace liquid;
 using namespace std::literals::string_literals;
 
-class LLVMFunctionBlockGraph : public FunctionBlockGraph
+class LLVMFunctionBlockGraph_If : public FunctionBlockGraph
 {
 public:
   std::string GetStartingBlockName() const
@@ -45,31 +45,20 @@ public:
   }
 };
 
-LLVMFunctionBlockGraph llvmFunctionBlockGraph;
-VariablesEnvironment env(llvmFunctionBlockGraph);
 
-std::string format(std::string expression)
-{
-  std::regex r("\\{\\{(.+?)\\}\\}");
-  std::smatch m;
-
-  while (std::regex_search(expression, m, r)) {
-    std::string varname = m[1];
-    std::string replacement = env.GetVariableName(varname);
-    expression = m.prefix().str() + replacement + m.suffix().str();
-  }
-
-  return expression;
-}
+std::string format(VariablesEnvironment& env, std::string expression);
 
 #define E(exp) \
 {\
   ResultType a = exp; \
   if (!a.Succeeded) { str = a.ErrorMsg; goto errh; }\
-}\
+}
 
-int main()
+int ifExample()
 {
+  LLVMFunctionBlockGraph_If llvmFunctionBlockGraph;
+  VariablesEnvironment env(llvmFunctionBlockGraph);
+
   std::string str;
 
   E(env.StartBlock("entry"s));
@@ -77,22 +66,22 @@ int main()
   E(env.CreateImmutableInputVariable("a"s, FixpointType::GetIntType(), { "__value < 50" }));
   E(env.CreateMutableOutputVariable("return"s, FixpointType::GetIntType(), { "__value < 150" }));
 
-  E(env.CreateMutableVariable("b"s, FixpointType::GetIntType(), { "__value < 100" }, format("__value == {{a}} + 4"s)));
-  E(env.AssignMutableVariable("b"s, format("__value =={{b}} + 20"s)));
-  E(env.CreateMutableVariable("cmp"s, FixpointType::GetBoolType(), {}, format("__value <=> {{b}} < 60"s)));
+  E(env.CreateMutableVariable("b"s, FixpointType::GetIntType(), { "__value < 100" }, format(env, "__value == {{a}} + 4"s)));
+  E(env.AssignMutableVariable("b"s, format(env, "__value =={{b}} + 20"s)));
+  E(env.CreateMutableVariable("cmp"s, FixpointType::GetBoolType(), {}, format(env, "__value <=> {{b}} < 60"s)));
 
   E(env.AddBranchInformation("cmp"s, true, "if.then"s));
   E(env.AddBranchInformation("cmp"s, false, "if.end"s));
 
   E(env.StartBlock("if.then"s));
-  E(env.AssignMutableVariable("b"s, format("__value == {{b}} + 35"s)));
-  E(env.CreateImmutableVariable("c"s, FixpointType::GetIntType(), {}, format("__value == 1"s)));
+  E(env.AssignMutableVariable("b"s, format(env, "__value == {{b}} + 35"s)));
+  E(env.CreateImmutableVariable("c"s, FixpointType::GetIntType(), {}, format(env, "__value == 1"s)));
   E(env.AddJumpInformation("if.end"s));
 
   E(env.StartBlock("if.end"s));
   E(env.CreatePhiNode("d"s, FixpointType::GetIntType(), { "a"s, "c"s }, { "entry"s, "if.then"s }));
 
-  E(env.AssignMutableVariable("return", format("__value == {{b}} + {{d}}"s)));
+  E(env.AssignMutableVariable("return", format(env, "__value == {{b}} + {{d}}"s)));
   E(env.ToStringOrFailure(str));
 
   std::cout << "Succeeded:" << std::endl << str;

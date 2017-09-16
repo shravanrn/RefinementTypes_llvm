@@ -21,8 +21,8 @@ In short, the get_started link asks you to do the following
 
 1) Checkout
 --------
-Checkout https://github.com/shravanrn/RefinementTypes_llvm to a folder 'llvm'
-Checkout https://github.com/shravanrn/RefinementTypes_clang to a the folder 'llvm/tools'
+Checkout https://github.com/shravanrn/RefinementTypes_llvm to the folder 'llvm'
+Checkout https://github.com/shravanrn/RefinementTypes_clang to a the folder 'llvm/tools/clang'
 
 2) Make build
 -----------

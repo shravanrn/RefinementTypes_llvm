@@ -20,9 +20,7 @@ set(LLVM_LINK_COMPONENTS
 set(LLVM_NO_DEAD_STRIP 1)
 
 add_llvm_tool(liquidTypes-varibleEnvLib-example
-  VaribleEnvLibExample.cpp
-
-  DEPENDS
-  intrinsics_gen
+  VariableEnvLib.cpp
+  VariableEnvLib_IfExample.cpp
   )
 export_executable_symbols(liquidTypes-varibleEnvLib-example)
