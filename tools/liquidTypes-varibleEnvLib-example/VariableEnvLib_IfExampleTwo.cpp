@@ -77,9 +77,9 @@ int ifThenElseExample()
   */
 
   /* Basic Blocks : 
-     B1 = [int a =4; return 6;]
-     B2 = [ goto {{ terminal }} ]
-     B3 = [ return 5; ]
+     B1 = [int a =4; .. return 6;]
+     B2 = [ return 5; ]
+     B3 = [ goto {{ terminal }} ]
   */
 
   // Create Start Block 
@@ -95,7 +95,7 @@ int ifThenElseExample()
   E(env.CrateMutableVariable("b"s, FixpointType::GetIntType(), { "__value < 7" }));
     
   // Create mutable variable `cmp` for branching information
-  E(env.CreateMutableVariable("cmp"s, FixpointType:GeetBoolType(), {}, format(env, "__value <=> {{a}} = 5"s)));
+  E(env.CreateMutableVariable("cmp"s, FixpointType::GetBoolType(), {}, format(env, "__value <=> {{a}} == 4"s)));
 
   // Add Branching information
   E(env.AddBranchInformation("cmp"s, true, "if.then"s));
