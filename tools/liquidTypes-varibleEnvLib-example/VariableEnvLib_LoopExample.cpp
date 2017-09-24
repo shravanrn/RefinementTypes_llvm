@@ -46,7 +46,7 @@ public:
 
   ResultType StrictlyDominates(const std::string& firstBlockName, const std::string& secondBlockName, bool& result) const
   {
-    result = (firstBlockName == "entry" && secondBlockName != "entry") || (firstBlockName == "if.then" && secondBlockName == "if.then");
+    result = (firstBlockName == "entry" && secondBlockName != "entry") || (firstBlockName == "condition" && (secondBlockName != "condition" && secondBlockName != "entry"));
     return ResultType::Success();
   }
 };
