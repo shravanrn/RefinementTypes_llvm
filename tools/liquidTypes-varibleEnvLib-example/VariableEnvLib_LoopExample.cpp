@@ -106,8 +106,8 @@ int forLoopExample()
   E(env.CreateMutableVariable("cmp"s, FixpointType::GetBoolType(), {}, format(env, "__value <=> {{i_one}} < 20"s)));
 
   // Add Branching information
-  E(env.AddBranchInformation("cmp", true, "if.then"s));
-  E(env.AddBranchInformation("cmp", false, "if.end"s));
+  E(env.AddBranchInformation("cmp"s, true, "if.then"s));
+  E(env.AddBranchInformation("cmp"s, false, "if.end"s));
   
   // Create the "if.then" block
   E(env.StartBlock("if.then"s));
@@ -116,7 +116,7 @@ int forLoopExample()
 
   // Create the "if.end" block
   E(env.StartBlock("if.end"s));
-  E(env.AssignMutableVariable("return", format(env, "__value == {i}"s)));
+  E(env.AssignMutableVariable("return"s, format(env, "__value == {i}"s)));
 
   // Check for failure, and verify this works; or fail and be loud
   E(env.ToStringOrFailure(str));
