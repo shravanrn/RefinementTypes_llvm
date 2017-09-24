@@ -40,7 +40,7 @@ public:
 
   ResultType StrictlyDominates(const std::string& firstblockName, const std::string& secondBlockName, bool& result) const
   {
-    result = (firstblockName == "entry" && secondBlockName != "entry");
+    result = (firstBlockName == "entry" && secondBlockName != "entry");
     return ResultType::Success();
   }
 };
@@ -50,7 +50,7 @@ std::string format(VariablesEnvironment& env, std::string expression);
 #define E(exp) \
 {\
   ResultType a = exp; \
-  if (!a.Succeeded) { str = a.ErrorMsg goto errh;}\
+  if (!a.Succeeded) { str = a.ErrorMsg; goto errh; } \
 }
 
 int ifThenElseExample()
@@ -61,8 +61,8 @@ int ifThenElseExample()
      if (a == 4) { b = 5; } else { b = 6; }
      int b {__value == 5}
   */
-  LLVMFunctionBlockGraph_If llvmFunctionBlockGraph;
-  Variablesenvironment env(llvmFunctionBlockGraph);
+  LLVMFunctionBlockGraph_IfTwo llvmFunctionBlockGraph;
+  VariablesEnvironment env(llvmFunctionBlockGraph);
 
   std::string str;
 
@@ -77,7 +77,7 @@ int ifThenElseExample()
   */
 
   /* Basic Blocks : 
-     B1 = [int a =4; .. return 6;]
+     B1 = [int a = 4; .. return 6;]
      B2 = [ return 5; ]
      B3 = [ goto {{ terminal }} ]
   */
@@ -86,13 +86,13 @@ int ifThenElseExample()
   E(env.StartBlock("entry"s));
 
   // Create immutable `a`, such that, `a` = 4
-  E(env.CreateImmutableVariable("a"s, FixpointType::GetIntType(), { "__value == 4"}));
+  E(env.CreateImmutableVariable("a"s, FixpointType::GetIntType(), { "__value == 4" }));
 
   // Create mutable variable `return`
-  E(env.CreateMutableOutputVariable("return"s, FixpointType::GetIntType(), { "__value == 6"}));
+  E(env.CreateMutableOutputVariable("return"s, FixpointType::GetIntType(), { "__value == 6" }));
 
   // Create mutable variable `b`
-  E(env.CrateMutableVariable("b"s, FixpointType::GetIntType(), { "__value < 7" }));
+  E(env.CreateMutableVariable("b"s, FixpointType::GetIntType(), { "__value < 7" }));
     
   // Create mutable variable `cmp` for branching information
   E(env.CreateMutableVariable("cmp"s, FixpointType::GetBoolType(), {}, format(env, "__value <=> {{a}} == 4"s)));
@@ -122,7 +122,9 @@ errh:
   std::cout << "Failed:" << std::endl << str;
   return -1;
 }
-  
-  
-  
-  
+
+int main()
+{
+  ifThenElseExample();
+}
+

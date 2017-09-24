@@ -19,6 +19,8 @@ std::string format(VariablesEnvironment& env, std::string expression)
 }
 
 int ifExample();
+int ifThenElseExample();
+int forLoopExample();
 
 int main()
 {
@@ -26,12 +28,21 @@ int main()
 	std::cout << "Enter a number" << std::endl;
 	std::cout << "1 for example with if" << std::endl;
 	std::cout << "2 for example with if else" << std::endl;
+	std::cout << "3 for example with for loop" << std::endl;
 	std::cout << "Choice: ";
 	std::cin >> a;
 
 	if(a == 1)
 	{
 		return ifExample();
+	}
+        else if(a == 2)
+	{
+		return ifTheElseExample();
+	}
+	else if(a == 3)
+	{
+		return forLoopExample();
 	}
 	else
 	{
