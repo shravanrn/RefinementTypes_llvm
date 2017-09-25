@@ -38,7 +38,7 @@ int main()
 	}
         else if(a == 2)
 	{
-		return ifTheElseExample();
+		return ifThenElseExample();
 	}
 	else if(a == 3)
 	{

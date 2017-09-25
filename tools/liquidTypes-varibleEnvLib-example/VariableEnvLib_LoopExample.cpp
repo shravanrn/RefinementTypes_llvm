@@ -128,4 +128,3 @@ errh:
   std::cout << "Failed:" << std::endl << str;
   return -1;
 }
-  
