@@ -1,5 +1,5 @@
 #include "llvm/Transforms/LiquidTypes/VariablesEnvironment.h"
-#include "llvm/Transforms/LiquidTypes/FunctionBlockgraph.h"
+#include "llvm/Transforms/LiquidTypes/FunctionBlockGraph.h"
 #include "llvm/Transforms/LiquidTypes/ResultType.h"
 #include <regex>
 #include <iostream>
@@ -38,7 +38,7 @@ public:
     return ResultType::Success();
   }
 
-  ResultType StrictlyDominates(const std::string& firstblockName, const std::string& secondBlockName, bool& result) const
+  ResultType StrictlyDominates(const std::string& firstBlockName, const std::string& secondBlockName, bool& result) const
   {
     result = (firstBlockName == "entry" && secondBlockName != "entry");
     return ResultType::Success();
@@ -86,13 +86,13 @@ int ifThenElseExample()
   E(env.StartBlock("entry"s));
 
   // Create immutable `a`, such that, `a` = 4
-  E(env.CreateImmutableVariable("a"s, FixpointType::GetIntType(), { "__value == 4" }));
+  E(env.CreateImmutableVariable("a"s, FixpointType::GetIntType(), {}, format(env, "__value == 4"s )));
 
   // Create mutable variable `return`
   E(env.CreateMutableOutputVariable("return"s, FixpointType::GetIntType(), { "__value == 6" }));
 
   // Create mutable variable `b`
-  E(env.CreateMutableVariable("b"s, FixpointType::GetIntType(), { "__value < 7" }));
+  E(env.CreateMutableVariable("b"s, FixpointType::GetIntType(), { "__value < 7" }, format(env, "__value == 5"s)));
     
   // Create mutable variable `cmp` for branching information
   E(env.CreateMutableVariable("cmp"s, FixpointType::GetBoolType(), {}, format(env, "__value <=> {{a}} == 4"s)));
@@ -104,7 +104,7 @@ int ifThenElseExample()
   // Create the "if.then" block
   E(env.StartBlock("if.then"s));
   E(env.AssignMutableVariable("b"s, format(env, "__value == 5"s)));
-  E(env.addJumpInformation("if.end"s));
+  E(env.AddJumpInformation("if.end"s));
 
   // Create the "if.end" block 
   E(env.StartBlock("if.end"s));
@@ -121,10 +121,5 @@ int ifThenElseExample()
 errh:
   std::cout << "Failed:" << std::endl << str;
   return -1;
-}
-
-int main()
-{
-  ifThenElseExample();
 }
 

@@ -1,5 +1,5 @@
 #include "llvm/Transforms/LiquidTypes/VariablesEnvironment.h"
-#include "llvm/Transforms/LiquidTypes/Functionblockgraph.h"
+#include "llvm/Transforms/LiquidTypes/FunctionBlockGraph.h"
 #include "llvm/Transforms/LiquidTypes/ResultType.h"
 #include <regex>
 #include <iostream>
@@ -93,13 +93,13 @@ int forLoopExample()
   E(env.StartBlock("entry"s));
 
   // Create mutable `i`
-  E(env.CreateMutableVariable("i"s, FixpointType::GetIntType(), { "__value <= 2147483647" }));
+  E(env.CreateMutableVariable("i"s, FixpointType::GetIntType(), {}, format(env, "__value <= 2147483647"s )));
 
   // Create mutable variable `return`
-  E(env.CreateMutableVariable("return"s, FixpointType::GetIntType(), { "__value == 20" }));
+  E(env.CreateMutableVariable("return"s, FixpointType::GetIntType(), {}, format(env, "__value == 20"s )));
 
   // Create mutable variable `i_one`
-  E(env.CreateMutableVariable("i_one"s, FixpointType::GetIntType(), { "__value == 0" }));
+  E(env.CreateMutableVariable("i_one"s, FixpointType::GetIntType(), {}, format(env, "__value == 0"s )));
 
   // Create the "condition" block
   E(env.StartBlock("condition"s));
@@ -127,10 +127,5 @@ int forLoopExample()
 errh:
   std::cout << "Failed:" << std::endl << str;
   return -1;
-}
-
-int main()
-{
-  forLoopExample();
 }
   
