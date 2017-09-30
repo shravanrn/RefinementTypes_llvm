@@ -7,7 +7,7 @@
 using namespace liquid;
 using namespace std::literals::string_literals;
 
-class LLVMFunctionBlockGraph_ForLoop: public FunctionBlockGraph
+class LLVMFunctionBlockGraph_Loop: public FunctionBlockGraph
 {
 public:
   std::string GetStartingBlockName() const
@@ -19,18 +19,12 @@ public:
   {
     if (blockName == "entry")
     {
-      successorBlocks.emplace_back("condition");
-      successorBlocks.emplace_back("if.then");
-      successorBlocks.emplace_back("if.end");
+      successorBlocks.emplace_back("if.loop");
     }
-    else if (blockName == "condition")
+    else if (blockName == "if.loop")
     {
-      successorBlocks.emplace_back("if.then");
+      successorBlocks.emplace_back("if.loop");
       successorBlocks.emplace_back("if.end");
-    }
-    else if (blockName == "if.then")
-    {
-      successorBlocks.emplace_back("condition");
     }
     else if (blockName == "if.end")
     {
@@ -46,7 +40,7 @@ public:
 
   ResultType StrictlyDominates(const std::string& firstBlockName, const std::string& secondBlockName, bool& result) const
   {
-    result = (firstBlockName == "entry" && secondBlockName != "entry") || (firstBlockName == "condition" && (secondBlockName != "condition" && secondBlockName != "entry"));
+    result = (firstBlockName == "entry" && secondBlockName != "entry") || (firstBlockName == "if.loop" && (secondBlockName != "if.loop" && secondBlockName != "entry"));
     return ResultType::Success();
   }
 };
@@ -69,14 +63,14 @@ int forLoopExample()
      }
      j = i;
   */
-  LLVMFunctionBlockGraph_ForLoop llvmFunctionBlockGraph;
+  LLVMFunctionBlockGraph_Loop llvmFunctionBlockGraph;
   VariablesEnvironment env(llvmFunctionBlockGraph);
 
   std::string str;
 
   /* Corresponding 3-address code :
      int i;
-     int j;
+     int j {__value = 5 __};
      int i' = 0;
      if (i' < 20) goto {{ i' = i' + 1 }}
      j = i;
@@ -84,9 +78,8 @@ int forLoopExample()
 
   /* Basic Blocks :
      B1 = [int i; .. int i' = 0]
-     B2 = [if (i' < 20) goto {{ B4 }}]
+     B2 = [i' = i' + 1, if (i' < 20) goto {{ B2 }}]
      B3 = [j = i]
-     B4 = [i' = i' + 1; goto {{ B2 }}]
   */
 
   // Create Start Block
@@ -96,23 +89,32 @@ int forLoopExample()
   E(env.CreateMutableVariable("i"s, FixpointType::GetIntType(), {}, format(env, "__value <= 2147483647"s )));
 
   // Create mutable variable `return`
-  E(env.CreateMutableVariable("return"s, FixpointType::GetIntType(), {}, format(env, "__value == 20"s )));
+  E(env.CreateMutableVariable("return"s, FixpointType::GetIntType(), {}, format(env, "__value == 5"s )));
 
   // Create mutable variable `i_one`
   E(env.CreateMutableVariable("i_one"s, FixpointType::GetIntType(), {}, format(env, "__value == 0"s )));
 
-  // Create the "condition" block
-  E(env.StartBlock("condition"s));
+  // Create mutable variable `temp`
+  E(env.CreateMutableVariable("temp"s, FixpointType::GetIntType(), {}, format(env, "__value == 0"s)));
+
+  // Jump to the next block
+  E(env.AddJumpInformation("if.loop"s));
+  
+  // Create the "if.loop" block
+  E(env.StartBlock("if.loop"s));
+
+  // Assign to the mutable variable `temp` the current value of `i_one`
+  E(env.CreatePhiNode("temp"s, FixpointType::GetIntType(), { "i_one"s, "i_one"s }, { "if.loop"s, "entry"s }))
+
+  // Increment the value of `i_one`
+  E(env.AssignMutableVariable("i_one"s, format(env, "__value == {{temp}} + 1"s)));
+
+  // Check to see whether we should loop or break
   E(env.CreateMutableVariable("cmp"s, FixpointType::GetBoolType(), {}, format(env, "__value <=> {{i_one}} < 20"s)));
 
   // Add Branching information
-  E(env.AddBranchInformation("cmp"s, true, "if.then"s));
+  E(env.AddBranchInformation("cmp"s, true, "if.loop"s));
   E(env.AddBranchInformation("cmp"s, false, "if.end"s));
-  
-  // Create the "if.then" block
-  E(env.StartBlock("if.then"s));
-  E(env.AssignMutableVariable("i_one"s, format(env, "__value == {{i_one}} + 1"s)));
-  E(env.AddJumpInformation("condition"s));
 
   // Create the "if.end" block
   E(env.StartBlock("if.end"s));

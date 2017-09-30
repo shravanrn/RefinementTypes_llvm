@@ -86,13 +86,13 @@ int ifThenElseExample()
   E(env.StartBlock("entry"s));
 
   // Create immutable `a`, such that, `a` = 4
-  E(env.CreateImmutableVariable("a"s, FixpointType::GetIntType(), {}, format(env, "__value == 4"s )));
+  E(env.CreateImmutableInputVariable("a"s, FixpointType::GetIntType(), { "__value == 4"s }));
 
   // Create mutable variable `return`
-  E(env.CreateMutableOutputVariable("return"s, FixpointType::GetIntType(), { "__value == 6" }));
+  E(env.CreateMutableOutputVariable("return"s, FixpointType::GetIntType(), { "__value == 5" }));
 
   // Create mutable variable `b`
-  E(env.CreateMutableVariable("b"s, FixpointType::GetIntType(), { "__value < 7" }, format(env, "__value == 5"s)));
+  E(env.CreateMutableVariable("b"s, FixpointType::GetIntType(), {}, format(env, "__value == 6"s)));
     
   // Create mutable variable `cmp` for branching information
   E(env.CreateMutableVariable("cmp"s, FixpointType::GetBoolType(), {}, format(env, "__value <=> {{a}} == 4"s)));
@@ -109,7 +109,7 @@ int ifThenElseExample()
   // Create the "if.end" block 
   E(env.StartBlock("if.end"s));
   // Create the Phi-Node
-  E(env.CreatePhiNode("d"s, FixpointType::GetIntType(), { "return"s, "b"s }, { "entry"s, "if.then"s }));
+  E(env.CreatePhiNode("d"s, FixpointType::GetIntType(), { "b"s, "b"s }, { "entry"s, "if.then"s }));
   E(env.AssignMutableVariable("return", format(env, "__value = {{d}}"s)));
 
   // Check for failure, and verify this works; or fail and be loud
