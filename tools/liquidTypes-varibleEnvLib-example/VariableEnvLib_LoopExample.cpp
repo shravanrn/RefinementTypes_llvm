@@ -40,7 +40,7 @@ public:
 
   ResultType StrictlyDominates(const std::string& firstBlockName, const std::string& secondBlockName, bool& result) const
   {
-    result = (firstBlockName == "entry" && secondBlockName != "entry") || (firstBlockName == "if.loop" && (secondBlockName != "if.loop" && secondBlockName != "entry"));
+    result = ((firstBlockName == "entry" && secondBlockName != "entry") || (firstBlockName == "if.loop" && (secondBlockName != "if.loop" && secondBlockName != "entry")));
     return ResultType::Success();
   }
 };
@@ -93,9 +93,6 @@ int forLoopExample()
 
   // Create mutable variable `i_one`
   E(env.CreateMutableVariable("i_one"s, FixpointType::GetIntType(), {}, format(env, "__value == 0"s )));
-
-  // Create mutable variable `temp`
-  E(env.CreateMutableVariable("temp"s, FixpointType::GetIntType(), {}, format(env, "__value == 0"s)));
 
   // Jump to the next block
   E(env.AddJumpInformation("if.loop"s));
