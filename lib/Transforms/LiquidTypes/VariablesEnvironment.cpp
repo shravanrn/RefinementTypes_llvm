@@ -157,7 +157,8 @@ namespace liquid
 		}
 
 		std::string newVarName = getNextVariableName(variable);
-		return createVariable(variable, newVarName, variableTypes.at(variable), mutableVariableConstraints[variable], expression);
+		auto varType = variableTypes.at(variable);
+		return createVariable(variable, newVarName, varType, mutableVariableConstraints[variable], expression);
 	}
 
 	ResultType VariablesEnvironment::AddJumpInformation(const std::string& targetBlock)
@@ -375,7 +376,7 @@ namespace liquid
 				blockVariablesAndInfo.push_back(blockVariableMapping);
 			}
 
-			std::string constraintName = "Variable_"s + previousBlock + "_"s + currentBlockName + "_"s + variable;
+			std::string constraintName = "Variable_"s + previousBlock + "_"s + currentBlockName + "_"s + mappedVariableName;
 
 			//hack - for variables that aren't created yet aka future binders, there will be no mapping, so we will just use the name as is
 			//we are relying on the fact, that the first variable mapping is the same as the variable name and that future binders are immutable
@@ -454,13 +455,21 @@ namespace liquid
 			std::vector<std::string> predecessorTransitionGuards;
 			for (const auto& predecessor : predecessors)
 			{
+				std::string transitionGuardName = "__transition__"s + predecessor + "__"s + blockName;
+
 				std::string predecessorEntryGuard;
 				{
-					auto getPredEntryRes = getBlockGuard(predecessor, predecessorEntryGuard);
-					if (!getPredEntryRes.Succeeded) { return getPredEntryRes; }
+					if (predecessor == blockName)
+					{
+						predecessorEntryGuard = transitionGuardName;
+					}
+					else
+					{
+						auto getPredEntryRes = getBlockGuard(predecessor, predecessorEntryGuard);
+						if (!getPredEntryRes.Succeeded) { return getPredEntryRes; }
+					}
 				}
 
-				std::string transitionGuardName = "__transition__"s + predecessor + "__"s + blockName;
 				predecessorTransitionGuards.emplace_back("("s + predecessorEntryGuard + " && "s + transitionGuardName + ")"s);
 			}
 
