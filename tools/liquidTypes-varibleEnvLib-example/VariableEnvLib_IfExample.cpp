@@ -1,6 +1,6 @@
-#include "llvm/Transforms/LiquidTypes/VariablesEnvironment.h"
-#include "llvm/Transforms/LiquidTypes/FunctionBlockGraph.h"
-#include "llvm/Transforms/LiquidTypes/ResultType.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/VariablesEnvironment.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/FunctionBlockGraph.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/ResultType.h"
 #include <regex>
 #include <iostream>
 

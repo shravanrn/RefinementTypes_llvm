@@ -1,5 +1,5 @@
 #include "llvm/Transforms/LiquidTypes/RefinementInstructionConstraintGenerator.h"
-#include "llvm/Transforms/LiquidTypes/RefinementUtils.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/RefinementUtils.h"
 #include "llvm/Transforms/LiquidTypes/RefinementFunctionSignatureInfo.h"
 #include "llvm/IR/Constants.h"
 

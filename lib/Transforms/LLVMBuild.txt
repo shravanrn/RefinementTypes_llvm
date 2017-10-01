@@ -16,7 +16,7 @@
 ;===------------------------------------------------------------------------===;
 
 [common]
-subdirectories = antlr-cpp-rt Coroutines IPO LiquidTypesParser LiquidTypes InstCombine Instrumentation Scalar Utils Vectorize ObjCARC
+subdirectories = antlr-cpp-rt Coroutines IPO LiquidTypesParser LiquidFixpointBuilder LiquidTypes InstCombine Instrumentation Scalar Utils Vectorize ObjCARC
 
 [component_0]
 type = Group

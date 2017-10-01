@@ -1,7 +1,7 @@
 #include <regex>
 #include <iostream>
 
-#include "llvm/Transforms/LiquidTypes/VariablesEnvironment.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/VariablesEnvironment.h"
 using namespace liquid;
 
 std::string format(VariablesEnvironment& env, std::string expression)

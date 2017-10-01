@@ -1,4 +1,4 @@
-;===- ./lib/Transforms/LiquidTypes/LLVMBuild.txt ---------------------*- Conf -*--===;
+;===- ./lib/Transforms/LiquidFixpointBuilder/LLVMBuild.txt ---------------------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -17,6 +17,5 @@
 
 [component_0]
 type = Library
-name = TransformLiquidTypes
+name = TransformLiquidFixpointBuilder
 parent = Transforms
-required_libraries = Analysis Core Support TransformLiquidTypesParser TransformLiquidFixpointBuilder

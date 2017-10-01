@@ -7,9 +7,9 @@
 #include <memory>
 #include <sstream>
 
-#include "llvm/Transforms/LiquidTypes/ResultType.h"
-#include "llvm/Transforms/LiquidTypes/Counter.h"
-#include "llvm/Transforms/LiquidTypes/FixpointType.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/ResultType.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/Counter.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/FixpointType.h"
 
 namespace liquid {
 

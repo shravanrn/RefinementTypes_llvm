@@ -1,5 +1,5 @@
 #include "llvm/Transforms/LiquidTypes/RefinementMetadata.h"
-#include "llvm/Transforms/LiquidTypes/RefinementUtils.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/RefinementUtils.h"
 
 #include <vector>
 

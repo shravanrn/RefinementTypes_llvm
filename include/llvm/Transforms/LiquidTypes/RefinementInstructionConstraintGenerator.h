@@ -5,10 +5,10 @@
 #include <map>
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Transforms/LiquidTypes/ResultType.h"
-#include "llvm/Transforms/LiquidTypes/FixpointConstraintBuilder.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/ResultType.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/FixpointConstraintBuilder.h"
 #include "llvm/Transforms/LiquidTypes/FixpointTypeConvertor.h"
-#include "llvm/Transforms/LiquidTypes/VariablesEnvironment.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/VariablesEnvironment.h"
 #include "llvm/Transforms/LiquidTypes/RefinementMetadata.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 

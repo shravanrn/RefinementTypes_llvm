@@ -1,5 +1,5 @@
-#include "llvm/Transforms/LiquidTypes/VariablesEnvironment.h"
-#include "llvm/Transforms/LiquidTypes/RefinementUtils.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/VariablesEnvironment.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/RefinementUtils.h"
 #include <algorithm>
 #include <cassert>
 

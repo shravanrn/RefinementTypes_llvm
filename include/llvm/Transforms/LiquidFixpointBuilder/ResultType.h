@@ -2,7 +2,7 @@
 #define LLVM_TRANSFORMS_UTILS_LIQUID_RESULTTYPE_H
 
 #include <string>
-#include "llvm/Transforms/LiquidTypes/RefinementMacroUtils.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/RefinementMacroUtils.h"
 
 class NODISCARD ResultType
 {

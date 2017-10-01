@@ -1,5 +1,5 @@
-#include "llvm/Transforms/LiquidTypes/FixpointConstraintBuilder.h"
-#include "llvm/Transforms/LiquidTypes/RefinementUtils.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/FixpointConstraintBuilder.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/RefinementUtils.h"
 #include <memory>
 #include <regex>
 #include <cassert>

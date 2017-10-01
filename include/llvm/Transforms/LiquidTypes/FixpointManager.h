@@ -3,7 +3,7 @@
 
 #include <string>
 #include <vector>
-#include "llvm/Transforms/LiquidTypes/ResultType.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/ResultType.h"
 #include "llvm/ADT/SmallString.h"
 
 namespace liquid {

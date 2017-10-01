@@ -5,9 +5,9 @@
 #include <string>
 #include <set>
 #include <vector>
-#include "llvm/Transforms/LiquidTypes/FixpointConstraintBuilder.h"
-#include "llvm/Transforms/LiquidTypes/FixpointType.h"
-#include "llvm/Transforms/LiquidTypes/FunctionBlockGraph.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/FixpointConstraintBuilder.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/FixpointType.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/FunctionBlockGraph.h"
 
 using namespace std::literals::string_literals;
 

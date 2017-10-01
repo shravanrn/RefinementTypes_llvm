@@ -1,5 +1,5 @@
 #include "llvm/Transforms/LiquidTypes/AnalysisRetriever.h"
-#include "llvm/Transforms/LiquidTypes/RefinementUtils.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/RefinementUtils.h"
 #include "llvm/Transforms/LiquidTypes/RefinementFunctionSignatureAnalysisPass.h"
 
 namespace liquid

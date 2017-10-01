@@ -6,7 +6,7 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Function.h"
-#include "llvm/Transforms/LiquidTypes/ResultType.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/ResultType.h"
 #include "llvm/Transforms/LiquidTypes/RefinementMetadata_Raw.h"
 #include "../../Transforms/LiquidTypesParser/RefinementParser.h"
 

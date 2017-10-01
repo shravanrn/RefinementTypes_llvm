@@ -1,13 +1,13 @@
 #ifndef LLVM_TRANSFORMS_UTILS_REFINEMENTSCONSTRAINTGENERATOR_H
 #define LLVM_TRANSFORMS_UTILS_REFINEMENTSCONSTRAINTGENERATOR_H
 
-#include "llvm/Transforms/LiquidTypes/FixpointConstraintBuilder.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/FixpointConstraintBuilder.h"
 #include "llvm/Transforms/LiquidTypes/FixpointTypeConvertor.h"
-#include "llvm/Transforms/LiquidTypes/VariablesEnvironment.h"
-#include "llvm/Transforms/LiquidTypes/ResultType.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/VariablesEnvironment.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/ResultType.h"
 #include "llvm/Transforms/LiquidTypes/RefinementMetadata.h"
 #include "llvm/Transforms/LiquidTypes/RefinementInstructionConstraintGenerator.h"
-#include "llvm/Transforms/LiquidTypes/FunctionBlockGraph.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/FunctionBlockGraph.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include <string>
 #include <vector>

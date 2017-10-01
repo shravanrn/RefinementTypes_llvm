@@ -1,5 +1,5 @@
 #include "llvm/Transforms/LiquidTypes/RefinementFunctionSignatureAnalysisPass.h"
-#include "llvm/Transforms/LiquidTypes/ResultType.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/ResultType.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/LoopInfo.h"
 

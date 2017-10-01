@@ -1,4 +1,4 @@
-#include "llvm/Transforms/LiquidTypes/FunctionBlockGraph.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/FunctionBlockGraph.h"
 
 namespace liquid
 {

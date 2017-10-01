@@ -3,8 +3,8 @@
 
 #include <string>
 #include <vector>
-#include "llvm/Transforms/LiquidTypes/ResultType.h"
-#include "llvm/Transforms/LiquidTypes/RefinementUtils.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/ResultType.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/RefinementUtils.h"
 
 namespace liquid
 {

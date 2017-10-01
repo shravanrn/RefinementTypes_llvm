@@ -1,5 +1,5 @@
 #include "llvm/Transforms/LiquidTypes/RefinementMetadata_Raw.h"
-#include "llvm/Transforms/LiquidTypes/RefinementUtils.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/RefinementUtils.h"
 
 using namespace std::string_literals;
 using namespace liquid;

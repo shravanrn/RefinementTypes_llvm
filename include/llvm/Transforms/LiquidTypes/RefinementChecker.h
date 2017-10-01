@@ -3,7 +3,7 @@
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Transforms/LiquidTypes/FixpointConstraintBuilder.h"
+#include "llvm/Transforms/LiquidFixpointBuilder/FixpointConstraintBuilder.h"
 
 namespace llvm {
 
