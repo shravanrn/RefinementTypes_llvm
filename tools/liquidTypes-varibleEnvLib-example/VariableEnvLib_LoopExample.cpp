@@ -19,12 +19,16 @@ public:
   {
     if (blockName == "entry")
     {
-      successorBlocks.emplace_back("if.loop");
+      successorBlocks.emplace_back("if.condition");
     }
-    else if (blockName == "if.loop")
+    else if (blockName == "if.condition")
     {
-      successorBlocks.emplace_back("if.loop");
+      successorBlocks.emplace_back("for.body");
       successorBlocks.emplace_back("if.end");
+    }
+    else if (blockName == "for.body")
+    {
+      successorBlocks.emplace_back("if.condition");
     }
     else if (blockName == "if.end")
     {
@@ -40,7 +44,7 @@ public:
 
   ResultType StrictlyDominates(const std::string& firstBlockName, const std::string& secondBlockName, bool& result) const
   {
-    result = ((firstBlockName == "entry" && secondBlockName != "entry") || (firstBlockName == "if.loop" && (secondBlockName != "if.loop" && secondBlockName != "entry")));
+    result = ((firstBlockName == "entry" && secondBlockName != "entry") || (firstBlockName == "if.condition" && secondBlockName == "if.end"));
     return ResultType::Success();
   }
 };
@@ -78,44 +82,55 @@ int forLoopExample()
 
   /* Basic Blocks :
      B1 = [int i; .. int i' = 0]
-     B2 = [i' = i' + 1, if (i' < 20) goto {{ B2 }}]
-     B3 = [j = i]
+     B2 = [if (i' < 20) goto {{ B3 }}]
+     B3 = [ ... , i' = i' + 1, goto {{ B2 }}]
+     B4 = [j = i]
   */
 
   // Create Start Block
   E(env.StartBlock("entry"s));
 
   // Create mutable `i`
-  E(env.CreateMutableVariable("i"s, FixpointType::GetIntType(), {}, format(env, "__value <= 2147483647"s )));
+  E(env.CreateMutableVariable("i"s, FixpointType::GetIntType(), { "__value <= 2147483647"s }, true));
 
   // Create mutable variable `return`
-  E(env.CreateMutableVariable("return"s, FixpointType::GetIntType(), {}, format(env, "__value == 5"s )));
+  E(env.CreateMutableVariable("return"s, FixpointType::GetIntType(), { "__value == 5"s }, true));
 
   // Create mutable variable `i_one`
   E(env.CreateMutableVariable("i_one"s, FixpointType::GetIntType(), {}, format(env, "__value == 0"s )));
 
+  // Create mutable variable `temp` (to buffer for `i_one`)
+  E(env.CreateMutableVariable("temp"s, FixpointType::GetIntType(), {}, format(env, "__value == {{i_one}}"s)));
+
   // Jump to the next block
-  E(env.AddJumpInformation("if.loop"s));
+  E(env.AddJumpInformation("if.condition"s));
   
   // Create the "if.loop" block
-  E(env.StartBlock("if.loop"s));
+  E(env.StartBlock("if.condition"s));
 
-  // Assign to the mutable variable `temp` the current value of `i_one`
-  E(env.CreatePhiNode("temp"s, FixpointType::GetIntType(), { "i_one"s, "i_one"s }, { "if.loop"s, "entry"s }))
-
-  // Increment the value of `i_one`
-  E(env.AssignMutableVariable("i_one"s, format(env, "__value == {{temp}} + 1"s)));
-
-  // Check to see whether we should loop or break
+  // Check if i_one < 20
   E(env.CreateMutableVariable("cmp"s, FixpointType::GetBoolType(), {}, format(env, "__value <=> {{i_one}} < 20"s)));
 
-  // Add Branching information
-  E(env.AddBranchInformation("cmp"s, true, "if.loop"s));
+  // Add Branching Information
+  E(env.AddBranchInformation("cmp"s, true, "for.body"s));
   E(env.AddBranchInformation("cmp"s, false, "if.end"s));
+
+  // Create the "for.body" block
+  // In general, we would run for-code here. But, we only increment.
+  E(env.StartBlock("for.body"s));
+
+  // Increment the value of `i_one`
+  E(env.AssignMutableVariable("temp"s, format(env, "__value == {{i_one}}"s)));
+  E(env.AssignMutableVariable("i_one"s, format(env, "__value == {{temp}} + 1"s)));
+  
+  // Jump to the next block
+  E(env.AddJumpInformation("if.condition"s));
 
   // Create the "if.end" block
   E(env.StartBlock("if.end"s));
-  E(env.AssignMutableVariable("return"s, format(env, "__value == {i}"s)));
+
+  // Assign : `j` = `i`
+  E(env.AssignMutableVariable("return"s, format(env, "__value == {{i}}"s)));
 
   // Check for failure, and verify this works; or fail and be loud
   E(env.ToStringOrFailure(str));
