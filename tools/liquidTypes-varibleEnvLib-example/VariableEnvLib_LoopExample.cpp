@@ -91,10 +91,10 @@ int forLoopExample()
   E(env.StartBlock("entry"s));
 
   // Create mutable `i`
-  E(env.CreateMutableVariable("i"s, FixpointType::GetIntType(), { "__value <= 2147483647"s }, "true"));
+  E(env.CreateMutableVariable("i"s, FixpointType::GetIntType(), { "__value <= 2147483647"s }, format(env, "__value <= 2147483647"s)));
 
   // Create mutable variable `return`
-  E(env.CreateMutableVariable("return"s, FixpointType::GetIntType(), { "__value == 5"s }, "true"));
+  E(env.CreateMutableVariable("return"s, FixpointType::GetIntType(), { "__value == 5"s }, format(env, "__value == 5"s)));
 
   // Create mutable variable `i_one`
   E(env.CreateMutableVariable("i_one"s, FixpointType::GetIntType(), {}, format(env, "__value == 0"s )));
@@ -102,14 +102,17 @@ int forLoopExample()
   // Create mutable variable `temp` (to buffer for `i_one`)
   E(env.CreateMutableVariable("temp"s, FixpointType::GetIntType(), {}, format(env, "__value == {{i_one}}"s)));
 
+  // Create mutable `cmp` variable
+  E(env.CreateMutableVariable("cmp"s, FixpointType::GetBoolType(), {}, format(env, "__value <=> true"s)));
+
   // Jump to the next block
   E(env.AddJumpInformation("if.condition"s));
   
-  // Create the "if.loop" block
+  // Create the "if.condition" block
   E(env.StartBlock("if.condition"s));
 
   // Check if i_one < 20
-  E(env.CreateMutableVariable("cmp"s, FixpointType::GetBoolType(), {}, format(env, "__value <=> {{i_one}} < 20"s)));
+  E(env.AssignMutableVariable("cmp"s, format(env, "__value <=> {{i_one}} < 20"s)));
 
   // Add Branching Information
   E(env.AddBranchInformation("cmp"s, true, "for.body"s));
