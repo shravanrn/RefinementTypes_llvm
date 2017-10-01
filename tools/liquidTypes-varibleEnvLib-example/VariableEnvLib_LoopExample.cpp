@@ -91,10 +91,10 @@ int forLoopExample()
   E(env.StartBlock("entry"s));
 
   // Create mutable `i`
-  E(env.CreateMutableVariable("i"s, FixpointType::GetIntType(), { "__value <= 2147483647"s }, true));
+  E(env.CreateMutableVariable("i"s, FixpointType::GetIntType(), { "__value <= 2147483647"s }, "true"));
 
   // Create mutable variable `return`
-  E(env.CreateMutableVariable("return"s, FixpointType::GetIntType(), { "__value == 5"s }, true));
+  E(env.CreateMutableVariable("return"s, FixpointType::GetIntType(), { "__value == 5"s }, "true"));
 
   // Create mutable variable `i_one`
   E(env.CreateMutableVariable("i_one"s, FixpointType::GetIntType(), {}, format(env, "__value == 0"s )));
