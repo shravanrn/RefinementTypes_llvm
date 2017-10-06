@@ -43,9 +43,9 @@ namespace liquid
 		auto search = mapToUse.find(variable);
 		if(search != mapToUse.end()) {
 			mapToUse.erase(search);
-	    }
+		}
 	    mapToUse.emplace(variable, type);
-    }
+	}
 
 	ResultType VariablesEnvironment::createIOVariable(
 		const std::string& variable,
