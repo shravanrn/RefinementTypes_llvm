@@ -30,7 +30,7 @@ namespace liquid
 		std::string currentBlockName = ""s;
 		const FunctionBlockGraph& functionBlockGraph;
 
-		std::map<std::String, FixpointType> variableTypes;
+		std::map<std::string, FixpointType> variableTypes;
 		std::map<std::string, Counter> mutableVariableState;
 		std::map<std::string, std::vector<std::string>> mutableVariableConstraints;
 		std::map<std::string, std::map<std::string, std::string>> variablesMappingsPerBlock;
