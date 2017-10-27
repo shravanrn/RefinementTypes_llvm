@@ -223,7 +223,46 @@ namepsace liquid
       }
     }
     return ResultType::Success();
-  }   
+  }
+  
+  ResultType VariablesEnvironmentImmutable::getCommonVariables(std::vector<std::string> previousBlocks, std::set<std::string>& commonVariables)
+  {
+    std::vector<std::string> previousFinishedBlocks;
+    std::vector<std::string> previousUnfinishedBlocks;
 
-  //@TODO::(juspreet) - Continue ripping and verifying.
+    for (auto& previousBlock: previousBlocks)
+    {
+      RefinementUtils::Contains(finishedBlocks, previousBlock) ?
+	previousFinishedBlocks.push_back(previousBlock) :
+	previousUnfinishedBlocks.push_back(previousBlock);
+    }
+
+    // In a CFG, it is possible that previous blocks aren't _all_ processed (loops)
+    // However, for immutable constructs, this shouldn't happen. Raise an Error, if it does.
+    if (previousUnfinishedBlocks.size() > 0)
+    {
+      return ResultType::Error("There exist: "s + std::to_string(previousUnfinishedBlocks.size()) + " unfinished Block that were appended without processing. This is an error in an immutable environment."s);
+    }
+
+    bool first = true;
+
+    for (auto& previousBlock : previousBlocks)
+    {
+      if (first)
+      {
+	commonVariables = RefinementUtils::GetKeysSet(variablesMappingsPerBlock[previousBlock]);
+	first = false;
+      }
+      else
+      {
+	std::set<std::string> currBlockVars = RefinementUtils::GetKeysSet(variablesMappingsPerBlock[previousBlock]);
+	commonVariables = RefinementUtils::SetIntersection(commonVariables, currBlockVars);
+      }
+    }
+    return ResultType::Success();
+  }
+
+  //@TODO::juspreet - Continue ripping and verifying.
+  
+  
 }
