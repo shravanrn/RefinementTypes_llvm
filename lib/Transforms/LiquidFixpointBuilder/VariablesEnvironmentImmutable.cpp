@@ -263,6 +263,80 @@ namepsace liquid
   }
 
   //@TODO::juspreet - Continue ripping and verifying.
-  
+  ResultType VariablesEnvironmentImmutable::getBlockBindersForPhiNode(const std::string& previousBlock, const std::string& blockName, const std::string& mappedVariableName, std::vector<std::string>& binders)
+  {
+    binders = getBlockBinders(previousBlock);
+
+    // Add the transition Edge Type to the Environment
+    std::string transitionGuardName = "__transition__"s + previousBlock + "__"s + currentBlockName;
+    binders.emplace_back(transitionGuardName);
+
+    std::string predecessorEntryGuard;
+    {
+      auto getPredEntryRes = getBlockGuard(previousBlock, predecessorEntryGuard);
+      if (!getPredEntryRes.Succeeded) { return getPredEntryRes; }
+    }
+
+    std::string phiNodeTransitionGuard = predecessorEntryGuard + " && "s + transitionGuardName;
+    std::string phiNodeGuardName = "__phi__"s + mappedVariableName + "_"s + previousBlock;
+
+    {
+      auto createBinderRes = constraintBuilder.CreateBinderWithConstraints(phiNodeGuardName, FixpointType::GetBoolType(), { phiNodeTransitionGuard });
+      if (!createBinderRes.Succeeded) { return createBinderRes; }
+    }
+
+    binders.emplace_back(phiNodeGuardName);
+    return ResultType::Success();
+  }
+
+  ResultType VariablesEnvironmentImmutable::createPhiNodewithoutCreatedBinders(const std::string& variable, vonst std::string& mappedVariableName, const FixpointType& type, const std::vector<std::string>& sourceVariableNames, const std::vector<std::string>& previousBlocks)
+  {
+    if (sourceVariableNames.size() != previousBlocks.size())
+    {
+      return ResultType::Error("Expected Phi-Node Variables and associated Block Size to be the sames"s);
+    }
+
+    {
+      auto currVariablesAndInfo = getBlockBinders(currentBlockName);
+      auto createBinderRes = constraintBuilder.CreatebinderWithUnkownType(mappedVariableName, type, currVariablesAndInfo);
+      if (!createBinderRes.Succeeded) { return createBinderRes; }
+    }
+
+    for (size_t i = 0, csize = previosBlocks.size(); i < csize; i++)
+    {
+      auto& previousBlock = previousBlocks[i];
+      std::vector<std::string> blockVariablesAndInfo;
+      {
+	auto getBinderRes = getBlockBindersForPhiNode(previousBlock, currentBlockName, mappedVariableName, blockVariablesAndInfo);
+	if (!getBinderRes.Succeeded) { return getBinderRes; }
+      }
+
+      auto blockVariableMapping = sourceVariableNames[i];
+      // Ensure that the future binder is part of the current info
+      if (!RefinementUtils::Contains(blockVariablesAndInfo, blockVariableMapping))
+      {
+	blockVariablesAndInfo.push_back(blockVariableMapping);
+      }
+
+      std::string constraintName = "Variable_"s + previousBlock + "_"s + currentBlockName + "_"s + mappedVariableName;
+
+      // Create Variable Mappings for Future Binders (which are immutable)
+      std::string variableName = blockVariableMapping;
+      if (RefinementUtils::ContainsKey(variablesMappingsPerBlock[previousBlock], blockVariableMapping))
+      {
+	variableName = variablesMappingsPerBlock[previousBlock][blockVariableMapping];
+      }
+
+      std::string assignedExpr = "__value == "s + variableName;
+
+      auto addConstres = constraintBuilder.AddConstraintForAssignment(constraintName, mappedVariableName, assignedExpr, blockVariablesAndInfo);
+      if (!addConstRes.Succeeded) { return addConstRes; }
+    }
+
+    variablesMappingsPerBlock[currentBlockName][variable] = mappedVariableName;
+    variablesValuesPerBlock[currentBlockName].emplace_back(mappedVariableName);
+    return ResultType::Success();
+  }
+
   
 }
