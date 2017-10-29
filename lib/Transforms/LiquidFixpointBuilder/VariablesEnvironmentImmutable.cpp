@@ -338,5 +338,250 @@ namepsace liquid
     return ResultType::Success();
   }
 
+  ResultType VariablesEnvironmentImmutable::createPhiNodeInternal(
+    const std::string& variable,
+    const std::string& mappedVariableName,
+    const FixpointType& type,
+    const std::vector<std::string>& sourceVariableNames,
+    const std::vector<std::string>& previousblocks)
+  {
+    if (sourceVariablesNames.size() != previousBlocks.size())
+    {
+      return ResultType::Error("Expected phi node variables and associated block size to be the same"s);
+    }
+
+    //Check if any parts of the phi node are variables that are not yet declared
+    for (size_t i = 0, csize = previousBlocks.size(); i < csize; i++)
+    {
+      auto& previousBlock = previousBlocks[i];
+      auto blockVariableMapping = sourceVariableNames[i];
+
+      //variable of a phi node hasn't been created yet
+      if (!RefinementUtils::ContainsKey(variablesMappingsPerBlock[previousBlock], blockVariableMapping))
+	{
+	  auto futureBinderRes = constraintBuilder.CreateFutureBinder(blockVariableMapping, type);
+	  if (!futureBinderRes.Succeeded) { return futureBinderRes; }
+	}
+    }
+    
+    return createPhiNodeWithoutCreatedBinders(variable, mappedVariableName, type, sourceVariableNames, previousBlocks);
+  }
+
+  ResultType VariablesEnvironmentImmutable::CreatePhiNode(const std::string& variable, const FixpointType& type, const std::vector<std::string>& sourceVariableNames, const std::vector<std::string>& previousBlocks)
+  {
+    std::string mappedVariableName = variable;
+    return createPhiNodeInternal(variable, mappedVariableName, type, sourceVariableNames, previousBlocks);
+  }
+
+  //@TODO:: (juspreet) - The recursive call here isn't clear. Verify.
+  ResultType VariablesEnvironmentImmutable::getBlockGuard(const std::string& blockName, std::string& blockGuard)
+  {
+    if (RefinementUtils::ContainsKey(cachedBlockGuards, blockName))
+    {
+      blockGuard = cachedBlockGuards[blockName];
+      return ResultType::Success();
+    }
+    
+    if (blockName == functionBlockGraph.GetStartingBlockName())
+    {
+      blockGuard = "true";
+    }
+    else
+    {
+      std::vector<std::string> predecessors;
+      {
+	auto getPredRes = functionBlockGraph.GetPreviousBlocks(blockName, predecessors);
+	if (!getPredRes.Succeeded) { return getPredRes; }
+      }
+      
+      std::vector<std::string> predecessorTransitionGuards;
+      for (const auto& predecessor : predecessors)
+      {
+	std::string transitionGuardName = "__transition__"s + predecessor + "__"s + blockName;
+
+	// (Bug?) The recursive call later gives unallocated strings here, until we find a predecessor that is the same as the current block.
+	std::string predecessorEntryGuard;
+	{
+	  if (predecessor == blockName)
+	  {
+	    predecessorEntryGuard = transitionGuardName;
+	  }
+	  else
+	  {
+	    auto getPredEntryRes = getBlockGuard(predecessor, predecessorEntryGuard);
+	    if (!getPredEntryRes.Succeeded) { return getPredEntryRes; }
+	  }
+	}
+	
+	predecessorTransitionGuards.emplace_back("("s + predecessorEntryGuard + " && "s + transitionGuardName + ")"s);
+      }
+	
+      blockGuard = "("s + RefinementUtils::StringJoin(" || ", predecessorTransitionGuards) + ")"s;
+    }
+    
+    cachedBlockGuards[blockName] = blockGuard;
+    return ResultType::Success();
+  }
+
+  ResultType VariablesEnvironment::addVariableToBlockAndSuccessors(const std::string& blockName, const std::string& transitionGuardName)
+  {
+    std::vector<std::string> successors;
+    {
+      auto getSuccRes = functionBlockGraph.GetAllSuccessorBlockNames(blockName, successors);
+      if (!getSuccRes.Succeeded) { return getSuccRes; }
+    };
+    
+    for (const auto& successor : successors)
+      {
+	variablesMappingsPerBlock[successor][transitionGuardName] = transitionGuardName;
+	variablesValuesPerBlock[successor].emplace(transitionGuardName);
+      }
+    
+    return ResultType::Success();
+  }
   
+  ResultType VariablesEnvironment::initializeBlockGuards()
+  {
+    std::vector<std::string> blockNames;
+    {
+      auto getBlockRes = functionBlockGraph.GetAllBlockNames(blockNames);
+      if (!getBlockRes.Succeeded) { return getBlockRes; }
+    }
+    
+    for (const auto& blockName : blockNames)
+    {
+      std::vector<std::string> successors;
+      {
+	auto getSuccRes = functionBlockGraph.GetSuccessorBlocks(blockName, successors);
+	if (!getSuccRes.Succeeded) { return getSuccRes; }
+      }
+      
+      for(const auto& successor : successors)
+      {
+	std::string transitionGuardName = "__transition__"s + blockName + "__"s + successor;
+	{
+	  auto createBinderRes = constraintBuilder.CreateFutureBinder(transitionGuardName, FixpointType::GetBoolType());
+	  if (!createBinderRes.Succeeded) { return createBinderRes; }
+	}
+	
+	{
+	  auto addVarRes = addVariableToBlockAndSuccessors(successor, transitionGuardName);
+	  if (!addVarRes.Succeeded) { return addVarRes; }
+	}
+      }
+    }
+    
+    for (const auto& blockName : blockNames)
+    {
+      std::string blockGuardName = "__block__"s + blockName;
+      std::string blockGuard;
+      {
+	auto getBlockGuardRes = getBlockGuard(blockName, blockGuard);
+	if (!getBlockGuardRes.Succeeded) { return getBlockGuardRes; }
+      }
+      
+      auto createBinderRes = constraintBuilder.CreateBinderWithConstraints(blockGuardName, FixpointType::GetBoolType(), { blockGuard });
+      if (!createBinderRes.Succeeded) { return createBinderRes; }
+      
+      //Don't add block guard to the variablesMapping, as it is added in the getBinders functions
+    }
+    
+    return ResultType::Success();
+  }
+
+  ResultType VariablesEnvironmentImmutable::endBlock(const std::string& blockName)
+  {
+    auto& phiNodeObligationsForBlock = phiNodeObligations[blockName];
+    
+    for (const auto& phiNodeObligation : phiNodeObligationsForBlock)
+    {
+      auto expression = "__value == "s + GetVariableName(phiNodeObligation.VariableSource);
+      auto currentMapping = phiNodeObligation.TargetFutureVariable;
+      auto createRes = CreateImmutableVariable(currentMapping, variableTypes.at(phiNodeObligation.VariableSource), {}, expression);
+      if (!createRes.Succeeded) { return createRes; };
+    }
+    
+    phiNodeObligationsForBlock.clear();
+    
+    finishedBlocks.emplace(blockName);
+    return ResultType::Success();
+  }
+
+  ResultType VariablesEnvironment::StartBlock(const std::string& blockName)
+  {
+    if (currentBlockName == ""s)
+    {
+      auto initRes = initializeBlockGuards();
+      if (!initRes.Succeeded) { return initRes; }
+    }
+    else
+    {
+      auto endBlockRes = endBlock(currentBlockName);
+      if (!endBlockRes.Succeeded) { return endBlockRes; }
+    }
+    
+    currentBlockName = blockName;
+    
+    if (RefinementUtils::Contains(finishedBlocks, currentBlockName))
+    {
+      return ResultType::Error("Block "s + currentBlockName + " has already finished");
+    }
+    
+    std::vector<std::string> previousBlocks;
+    {
+      auto previousBlockRes = functionBlockGraph.GetPreviousBlocks(currentBlockName, previousBlocks);
+      if (!previousBlockRes.Succeeded) { return previousBlockRes; }
+    }
+    
+    // Get variables which are present in ALL of the predecessor blocks
+    std::set<std::string> commonVariables;
+    {
+      auto getCommonVarsRes = getCommonVariables(previousBlocks, commonVariables);
+      if (!getCommonVarsRes.Succeeded) { return getCommonVarsRes; }
+    }
+    
+    // Add to the environment any variables which are unchanged in predecessors
+    std::set<std::string> phiNodeVariables;
+    for (auto& commonVariable : commonVariables)
+    {
+      bool usingIdenticalMappings = std::all_of(previousBlocks.begin(), previousBlocks.end(), [&](std::string block) {
+	  return variablesMappingsPerBlock[block][commonVariable] == variablesMappingsPerBlock[previousBlocks[0]][commonVariable];
+	});
+      
+      if (usingIdenticalMappings)
+      {
+	variablesMappingsPerBlock[currentBlockName][commonVariable] = variablesMappingsPerBlock[previousBlocks[0]][commonVariable];
+	variablesValuesPerBlock[currentBlockName].emplace(variablesMappingsPerBlock[previousBlocks[0]][commonVariable]);
+      }
+      else
+      {
+	phiNodeVariables.emplace(commonVariable);
+      }
+    }
+    
+    // Add to the environment any variables which require phi nodes
+    for (auto& phiNodeVariable : phiNodeVariables)
+    {
+      std::string mappedVariableName = getNextVariableName(phiNodeVariable);
+      auto blockSpecificVarNames = RefinementUtils::SelectString(previousBlocks, [&](const std::string& blockName) {
+	  return variablesMappingsPerBlock.at(blockName).at(phiNodeVariable);
+	});
+
+      auto createPhiRes = createPhiNodeWithoutCreatedBinders(phiNodeVariable, mappedVariableName, variableTypes.at(phiNodeVariable), blockSpecificVarNames, previousBlocks);
+      if (!createPhiRes.Succeeded) { return createPhiRes; }
+      
+      variablesMappingsPerBlock[currentBlockName][phiNodeVariable] = mappedVariableName;
+      variablesValuesPerBlock[currentBlockName].emplace(mappedVariableName);
+    }
+    
+    return ResultType::Success();
+  }
+  
+  ResultType VariablesEnvironment::ToStringOrFailure(std::string& output)
+  {
+    auto endBlockRes = endBlock(currentBlockName);
+    if (!endBlockRes.Succeeded) { return endBlockRes; }
+    
+    return constraintBuilder.ToStringOrFailure(output);
+  }
 }
