@@ -21,7 +21,7 @@ namespace liquid
       const std::string TargetFutureVariable;
 
       PhiNodeObligation() {}
-      PhiNodeObligation(const std::string variableSource, const std::string targetFutureVariable) : VariableSource(variableSource), TargetFutureVairable(targetFutureVariable) {}
+      PhiNodeObligation(const std::string variableSource, const std::string targetFutureVariable) : VariableSource(variableSource), TargetFutureVariable(targetFutureVariable) {}
   };
 
   class VariablesEnvironmentImmutable
@@ -31,7 +31,7 @@ namespace liquid
       const FunctionBlockGraph& functionBlockGraph;
 
       std::map<std::string, FixpointType> variableTypes;
-      std::map<std::string, std::map<std::string, std::string>> variablesMappingPerBlock;
+      std::map<std::string, std::map<std::string, std::string>> variablesMappingsPerBlock;
 
       std::map<std::string, std::set<std::string>> variablesValuesPerBlock;
       std::set<std::string> finishedBlocks;

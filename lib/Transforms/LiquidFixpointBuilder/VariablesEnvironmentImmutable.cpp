@@ -2,10 +2,11 @@
 #include "llvm/Transforms/LiquidFixpointBuilder/RefinementUtils.h"
 #include <algorithm>
 #include <cassert>
+#include <string>
 
 using namespace std::literals::string_literals;
 
-namepsace liquid
+namespace liquid
 {
   // Check whether a variable is defined
   bool VariablesEnvironmentImmutable::IsVariableDefined(std::string variableName)
@@ -18,7 +19,7 @@ namepsace liquid
   {
     assert(RefinementUtils::ContainsKey(variablesMappingsPerBlock, currentBlockName));
     assert(RefinementUtils::ContainsKey(variablesMappingsPerBlock[currentBlockName], variableName));
-    return variablesMappingPerBlock[currentBlockName][variableName];
+    return variablesMappingsPerBlock[currentBlockName][variableName];
   }
 
   // Get the address of the variable
@@ -37,7 +38,7 @@ namepsace liquid
   }
 
   // Assign a Type to a pre-existing variable, or give a variable a new Type
-  void insertOrAssignType(std::map<std::string, FixpointType>& mapToUse, const std::string& variable, const FixpointType& type)
+  void insertOrAssignVarType(std::map<std::string, FixpointType>& mapToUse, const std::string& variable, const FixpointType& type)
   {
     auto search = mapToUse.find(variable);
     if (search!= mapToUse.end()) {
@@ -62,7 +63,7 @@ namepsace liquid
       if (!createBinderRes.Succeeded) { return createBinderRes; }
     }
 
-    insertOrAssignType(variableTypes, variable, type);
+    insertOrAssignVarType(variableTypes, variable, type);
     variablesMappingsPerBlock[currentBlockName][variable] = mappedVariableName;
     variablesValuesPerBlock[currentBlockName].emplace(mappedVariableName);
 
@@ -94,7 +95,7 @@ namepsace liquid
   }
 
   // Create a Variable
-  ResultType VariablesEnvironmentImmutable::CreateVariable(
+  ResultType VariablesEnvironmentImmutable::createVariable(
     const std::string& variable,
     const std::string& mappedVariableName,
     const FixpointType& type,
@@ -119,7 +120,7 @@ namepsace liquid
     // Make an assignment to the variable
     {
       std::string constraintName = "Variable_"s + mappedVariableName + "_Assignment"s;
-      auto addConstRes = constraintBuilder.AddConstraintForAssignment(constaintName, mappedVariableName, expression, currVariablesAndInfo);
+      auto addConstRes = constraintBuilder.AddConstraintForAssignment(constraintName, mappedVariableName, expression, currVariablesAndInfo);
       if (!addConstRes.Succeeded) { return addConstRes; }
     }
 
@@ -138,12 +139,12 @@ namepsace liquid
     std::vector<std::string> constraints,
     std::string expression)
   {
-    if (RefinementUtils::ConstainsKey(variableTypes, variable))
+    if (RefinementUtils::ContainsKey(variableTypes, variable))
     {
       return ResultType::Error("Variable"s + variable + " already exists."s);
     }
 
-    return CreateVariable(variable, variable, type, constraints, expression);
+    return createVariable(variable, variable, type, constraints, expression);
   }
 
   ResultType VariablesEnvironmentImmutable::AddJumpInformation(const std::string& targetBlock)
@@ -157,7 +158,7 @@ namepsace liquid
     return ResultType::Success();
   }
 
-  ResultType VariablesEnvironment::AddBranchinformation(const std::string& booleanVariable, const bool variableValue, const std::string& targetBlock)
+  ResultType VariablesEnvironmentImmutable::AddBranchInformation(const std::string& booleanVariable, const bool variableValue, const std::string& targetBlock)
   {
     // Verify the variable doesn't already exist
     if (!RefinementUtils::ContainsKey(variableTypes, booleanVariable))
@@ -176,8 +177,8 @@ namepsace liquid
     const std::string transitionGuardName = "__transition__"s + currentBlockName + "__"s + targetBlock;
     
     {
-      auto createbinderRes = constraintBuilder.CreateBinderWithConstraints(transitionGuardName, FixpointType::GetBoolType(),  { assignedExpr });
-      if (!createdBinderRes.Succeeded) { return createBinderRes; }
+      auto createdBinderRes = constraintBuilder.CreateBinderWithConstraints(transitionGuardName, FixpointType::GetBoolType(),  { assignedExpr });
+      if (!createdBinderRes.Succeeded) { return createdBinderRes; }
     }
 
     return ResultType::Success();
@@ -201,7 +202,7 @@ namepsace liquid
       {
 	bool dominated;
 	{
-	  auto domRes = functionBlockGraph.StrictlyDominates(previousFinishedBlock, previousUnfinishedBlock, dominate);
+	  auto domRes = functionBlockGraph.StrictlyDominates(previousFinishedBlock, previousUnfinishedBlock, dominated);
 	  if (!domRes.Succeeded) { return domRes; }
 	}
 
@@ -289,7 +290,7 @@ namepsace liquid
     return ResultType::Success();
   }
 
-  ResultType VariablesEnvironmentImmutable::createPhiNodewithoutCreatedBinders(const std::string& variable, vonst std::string& mappedVariableName, const FixpointType& type, const std::vector<std::string>& sourceVariableNames, const std::vector<std::string>& previousBlocks)
+  ResultType VariablesEnvironmentImmutable::createPhiNodeWithoutCreatedBinders(const std::string& variable, const std::string& mappedVariableName, const FixpointType& type, const std::vector<std::string>& sourceVariableNames, const std::vector<std::string>& previousBlocks)
   {
     if (sourceVariableNames.size() != previousBlocks.size())
     {
@@ -298,11 +299,11 @@ namepsace liquid
 
     {
       auto currVariablesAndInfo = getBlockBinders(currentBlockName);
-      auto createBinderRes = constraintBuilder.CreatebinderWithUnkownType(mappedVariableName, type, currVariablesAndInfo);
+      auto createBinderRes = constraintBuilder.CreateBinderWithUnknownType(mappedVariableName, type, currVariablesAndInfo);
       if (!createBinderRes.Succeeded) { return createBinderRes; }
     }
 
-    for (size_t i = 0, csize = previosBlocks.size(); i < csize; i++)
+    for (size_t i = 0, csize = previousBlocks.size(); i < csize; i++)
     {
       auto& previousBlock = previousBlocks[i];
       std::vector<std::string> blockVariablesAndInfo;
@@ -329,12 +330,12 @@ namepsace liquid
 
       std::string assignedExpr = "__value == "s + variableName;
 
-      auto addConstres = constraintBuilder.AddConstraintForAssignment(constraintName, mappedVariableName, assignedExpr, blockVariablesAndInfo);
+      auto addConstRes = constraintBuilder.AddConstraintForAssignment(constraintName, mappedVariableName, assignedExpr, blockVariablesAndInfo);
       if (!addConstRes.Succeeded) { return addConstRes; }
     }
 
     variablesMappingsPerBlock[currentBlockName][variable] = mappedVariableName;
-    variablesValuesPerBlock[currentBlockName].emplace_back(mappedVariableName);
+    variablesValuesPerBlock[currentBlockName].emplace(mappedVariableName);
     return ResultType::Success();
   }
 
@@ -343,9 +344,9 @@ namepsace liquid
     const std::string& mappedVariableName,
     const FixpointType& type,
     const std::vector<std::string>& sourceVariableNames,
-    const std::vector<std::string>& previousblocks)
+    const std::vector<std::string>& previousBlocks)
   {
-    if (sourceVariablesNames.size() != previousBlocks.size())
+    if (sourceVariableNames.size() != previousBlocks.size())
     {
       return ResultType::Error("Expected phi node variables and associated block size to be the same"s);
     }
@@ -423,7 +424,7 @@ namepsace liquid
     return ResultType::Success();
   }
 
-  ResultType VariablesEnvironment::addVariableToBlockAndSuccessors(const std::string& blockName, const std::string& transitionGuardName)
+  ResultType VariablesEnvironmentImmutable::addVariableToBlockAndSuccessors(const std::string& blockName, const std::string& transitionGuardName)
   {
     std::vector<std::string> successors;
     {
@@ -440,7 +441,7 @@ namepsace liquid
     return ResultType::Success();
   }
   
-  ResultType VariablesEnvironment::initializeBlockGuards()
+  ResultType VariablesEnvironmentImmutable::initializeBlockGuards()
   {
     std::vector<std::string> blockNames;
     {
@@ -507,7 +508,7 @@ namepsace liquid
     return ResultType::Success();
   }
 
-  ResultType VariablesEnvironment::StartBlock(const std::string& blockName)
+  ResultType VariablesEnvironmentImmutable::StartBlock(const std::string& blockName)
   {
     if (currentBlockName == ""s)
     {
@@ -562,7 +563,8 @@ namepsace liquid
     // Add to the environment any variables which require phi nodes
     for (auto& phiNodeVariable : phiNodeVariables)
     {
-      std::string mappedVariableName = getNextVariableName(phiNodeVariable);
+      // Initialize the counter for the PhiNodevariable to be 0. Immutability => No increment.
+      std::string mappedVariableName = phiNodeVariable + "__"s + std::to_string(0);
       auto blockSpecificVarNames = RefinementUtils::SelectString(previousBlocks, [&](const std::string& blockName) {
 	  return variablesMappingsPerBlock.at(blockName).at(phiNodeVariable);
 	});
@@ -577,7 +579,7 @@ namepsace liquid
     return ResultType::Success();
   }
   
-  ResultType VariablesEnvironment::ToStringOrFailure(std::string& output)
+  ResultType VariablesEnvironmentImmutable::ToStringOrFailure(std::string& output)
   {
     auto endBlockRes = endBlock(currentBlockName);
     if (!endBlockRes.Succeeded) { return endBlockRes; }
