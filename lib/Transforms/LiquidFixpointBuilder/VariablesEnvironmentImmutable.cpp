@@ -492,18 +492,6 @@ namespace liquid
 
   ResultType VariablesEnvironmentImmutable::endBlock(const std::string& blockName)
   {
-    auto& phiNodeObligationsForBlock = phiNodeObligations[blockName];
-    
-    for (const auto& phiNodeObligation : phiNodeObligationsForBlock)
-    {
-      auto expression = "__value == "s + GetVariableName(phiNodeObligation.VariableSource);
-      auto currentMapping = phiNodeObligation.TargetFutureVariable;
-      auto createRes = CreateImmutableVariable(currentMapping, variableTypes.at(phiNodeObligation.VariableSource), {}, expression);
-      if (!createRes.Succeeded) { return createRes; };
-    }
-    
-    phiNodeObligationsForBlock.clear();
-    
     finishedBlocks.emplace(blockName);
     return ResultType::Success();
   }

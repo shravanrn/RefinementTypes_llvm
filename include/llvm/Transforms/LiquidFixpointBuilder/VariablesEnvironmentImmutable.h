@@ -13,17 +13,6 @@ using namespace std::literals::string_literals;
 
 namespace liquid
 {
-
-  class PhiNodeObligation
-  {
-    public:
-      const std::string VariableSource;
-      const std::string TargetFutureVariable;
-
-      PhiNodeObligation() {}
-      PhiNodeObligation(const std::string variableSource, const std::string targetFutureVariable) : VariableSource(variableSource), TargetFutureVariable(targetFutureVariable) {}
-  };
-
   class VariablesEnvironmentImmutable
   {
     private:
@@ -35,7 +24,6 @@ namespace liquid
 
       std::map<std::string, std::set<std::string>> variablesValuesPerBlock;
       std::set<std::string> finishedBlocks;
-      std::map<std::string, std::vector<PhiNodeObligation>> phiNodeObligations;
 
       std::set<std::string> outputVariables;
 
