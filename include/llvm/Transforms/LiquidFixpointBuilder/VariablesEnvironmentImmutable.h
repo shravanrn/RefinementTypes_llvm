@@ -20,12 +20,9 @@ namespace liquid
       const FunctionBlockGraph& functionBlockGraph;
 
       std::map<std::string, FixpointType> variableTypes;
-      std::map<std::string, std::map<std::string, std::string>> variablesMappingsPerBlock;
 
       std::map<std::string, std::set<std::string>> variablesValuesPerBlock;
       std::set<std::string> finishedBlocks;
-
-      std::set<std::string> outputVariables;
 
       std::map<std::string, std::string> cachedBlockGuards;
 
@@ -57,7 +54,6 @@ namespace liquid
       ResultType CreatePhiNode(const std::string& variable, const FixpointType& type, const std::vector<std::string>& sourceVariableNames, const std::vector<std::string>& previousBlocks);
 
       bool IsVariableDefined(std::string variableName);
-      std::string GetVariableName(std::string variableName);
       std::string GetVariableAddress(std::string variableName);
       ResultType ToStringOrFailure(std::string& output);
   };

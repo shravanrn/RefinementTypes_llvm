@@ -13,14 +13,6 @@ namespace liquid
   {
     return RefinementUtils::ContainsKey(variableTypes, variableName);
   }
-  
-  // Get the name of the variable
-  std::string VariablesEnvironmentImmutable::GetVariableName(const std::string variableName)
-  {
-    assert(RefinementUtils::ContainsKey(variablesMappingsPerBlock, currentBlockName));
-    assert(RefinementUtils::ContainsKey(variablesMappingsPerBlock[currentBlockName], variableName));
-    return variablesMappingsPerBlock[currentBlockName][variableName];
-  }
 
   // Get the address of the variable
   std::string VariablesEnvironmentImmutable::GetVariableAddress(std::string variableName)
@@ -56,6 +48,7 @@ namespace liquid
       return ResultType::Error("Variable"s + variable + " already exists."s);
     }
 
+    // @TODO::(Juspreet) - Is this really necessary ? `variable` is already a const reference. 
     std::string mappedVariableName = variable;
   
     {
@@ -64,7 +57,7 @@ namespace liquid
     }
 
     insertOrAssignVarType(variableTypes, variable, type);
-    variablesMappingsPerBlock[currentBlockName][variable] = mappedVariableName;
+    // @TODO::(Juspreet) - Is the Environment of bindings in a block ordered ? If so, is it FIFO/LIFO ?
     variablesValuesPerBlock[currentBlockName].emplace(mappedVariableName);
 
     return ResultType::Success();
@@ -76,20 +69,8 @@ namespace liquid
     const FixpointType& type,
     const std::vector<std::string>& constraints)
   {
-    	auto createRes = createIOVariable(variable, type, constraints);
-	if (!createRes.Succeeded) { return createRes; }
-
-	// Since, this is an input variable make it accessible to every block
-	auto internalVarName = GetVariableName(variable);
-
-	for (auto& blockVarMap : variablesMappingsPerBlock)
-	{
-	  if (!RefinementUtils::ContainsKey(blockVarMap.second, variable))
-	  {
-	    blockVarMap.second[variable] = internalVarName;
-	    variablesValuesPerBlock[blockVarMap.first].emplace(internalVarName);
-	  }
-        }
+    auto createRes = createIOVariable(variable, type, constraints);
+    if (!createRes.Succeeded) { return createRes; }
 
     return ResultType::Success();
   }
@@ -119,14 +100,13 @@ namespace liquid
 
     // Make an assignment to the variable
     {
-      std::string constraintName = "Variable_"s + mappedVariableName + "_Assignment"s;
-      auto addConstRes = constraintBuilder.AddConstraintForAssignment(constraintName, mappedVariableName, expression, currVariablesAndInfo);
+      std::string assignmentConstraintName = "Variable_"s + mappedVariableName + "_Assignment"s;
+      auto addConstRes = constraintBuilder.AddConstraintForAssignment(assignmentConstraintName, mappedVariableName, expression, currVariablesAndInfo);
       if (!addConstRes.Succeeded) { return addConstRes; }
     }
 
     // Make updates to Variable Mappings and Values for State Update of the Block
     insertOrAssignVarType(variableTypes, variable, type);
-    variablesMappingsPerBlock[currentBlockName][variable] = mappedVariableName;
     variablesValuesPerBlock[currentBlockName].emplace(mappedVariableName);
 
     return ResultType::Success();
@@ -160,19 +140,19 @@ namespace liquid
 
   ResultType VariablesEnvironmentImmutable::AddBranchInformation(const std::string& booleanVariable, const bool variableValue, const std::string& targetBlock)
   {
-    // Verify the variable doesn't already exist
+    // Verify the variable doesn't already exist.
     if (!RefinementUtils::ContainsKey(variableTypes, booleanVariable))
     {
       return ResultType::Error("Missing variable: "s + booleanVariable);
     }
 
-    // Enforce the variable type is Boolean
+    // Enforce the variable type is Boolean.
     if (variableTypes.at(booleanVariable) != FixpointType::GetBoolType())
     {
       return ResultType::Error("Expected boolean type for variable: "s + booleanVariable);
     }
 
-    // Convert the variable into a Proposition for a Fixpoint Constraint
+    // Convert the variable into a Proposition for a Fixpoint Constraint.
     const std::string assignedExpr = "__value <=> "s + (variableValue ? ""s : "~"s) + booleanVariable;
     const std::string transitionGuardName = "__transition__"s + currentBlockName + "__"s + targetBlock;
     
@@ -195,10 +175,10 @@ namespace liquid
 
     // Ensure that :
     // 1) forall blocks in PreviousFinishedBlocks, dominate(blocks, block), forall block in PreviousUnfinishedblocks
-    for (const auto& previousUnfinishedBlock : previousFinishedBlocks)
+    for (const auto& previousfinishedBlock : previousFinishedBlocks)
     {
       bool allDominated = true;
-      for (const auto& previousFinishedBlock : previousUnfinishedBlocks)
+      for (const auto& previousUnfinishedBlock : previousUnfinishedBlocks)
       {
 	bool dominated;
 	{
