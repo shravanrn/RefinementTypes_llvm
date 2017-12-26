@@ -130,6 +130,13 @@ namespace liquid {
 			std::transform(m.begin(), m.end(), std::back_inserter(ret), [](const typename std::map<T1, T2>::value_type& val) { return val.second; });
 			return ret;
 		}
+
+		template <typename T1>
+		static inline std::set<T1> GetValuesSet(const std::vector<T1>& v)
+		{
+		  std::set<T1> s(v.begin(), v.end());
+		  return s;
+		}
 	};
 }
 

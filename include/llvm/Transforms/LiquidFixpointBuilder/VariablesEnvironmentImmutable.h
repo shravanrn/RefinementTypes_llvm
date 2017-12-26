@@ -21,7 +21,7 @@ namespace liquid
 
       std::map<std::string, FixpointType> variableTypes;
 
-      std::map<std::string, std::set<std::string>> variablesValuesPerBlock;
+      std::map<std::string, std::vector<std::string>> variablesValuesPerBlock;
       std::set<std::string> finishedBlocks;
 
       std::map<std::string, std::string> cachedBlockGuards;

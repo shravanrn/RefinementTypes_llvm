@@ -164,17 +164,17 @@ namespace liquid
     return ResultType::Success();
   }
 
+  // @TODO::(Juspreet) - The function is not used anywhere in the immutable construct (yet). Verify if it can be ripped off.
   ResultType VariablesEnvironmentImmutable::validateFinishedAndUnfinishedBlockStates(
     const std::vector<std::string>& previousFinishedBlocks,
     const std::vector<std::string>& previousUnfinishedBlocks)
   {
-    //@TODO::(juspreet) - The logic is odd. It might be the cause of problem in loops. Verify.
     if (previousFinishedBlocks.size() == 0 || previousFinishedBlocks.size() > 1) {
       return ResultType::Error("Blocks were not completed in the right order. Expected one Completed Block, got "s + std::to_string(previousFinishedBlocks.size()));
     }
 
     // Ensure that :
-    // 1) forall blocks in PreviousFinishedBlocks, dominate(blocks, block), forall block in PreviousUnfinishedblocks
+    // 1) forall blocks in PreviousFinishedBlocks, dominate(blocks, block), forall block in PreviousUnfinishedblocks.
     for (const auto& previousfinishedBlock : previousFinishedBlocks)
     {
       bool allDominated = true;
@@ -193,7 +193,7 @@ namespace liquid
 	}
       }
 
-      // If all blocks are not dominated, then exit with an appropriate error message
+      // If all blocks are not dominated, then exit with an appropriate error message.
       if (!allDominated)
       {
 	return ResultType::Error("Blocks were not completed in the right order. Unexpected control flow graph. Finished: "s
@@ -211,6 +211,7 @@ namespace liquid
     std::vector<std::string> previousFinishedBlocks;
     std::vector<std::string> previousUnfinishedBlocks;
 
+    // Iterate through previousBlocks, and build the finished and unfinished blocks.
     for (auto& previousBlock: previousBlocks)
     {
       RefinementUtils::Contains(finishedBlocks, previousBlock) ?
@@ -218,32 +219,69 @@ namespace liquid
 	previousUnfinishedBlocks.push_back(previousBlock);
     }
 
-    // In a CFG, it is possible that previous blocks aren't _all_ processed (loops)
+    // In a CFG, it is possible that previous blocks aren't _all_ processed (loops).
     // However, for immutable constructs, this shouldn't happen. Raise an Error, if it does.
+    
+    // @TODO::(Juspreet) - If there are supposed to be 0 previousUnfinishedBlocks, then what are we to check the Linear Order with respect to ?
+    // Currently - The linear order is checked to verify all finishedBlocks have been finished to respect the Partial Order.
     if (previousUnfinishedBlocks.size() > 0)
     {
-      return ResultType::Error("There exist: "s + std::to_string(previousUnfinishedBlocks.size()) + " unfinished Block that were appended without processing. This is an error in an immutable environment."s);
+      return ResultType::Error("There exist: "s + std::to_string(previousUnfinishedBlocks.size()) + " unfinished Block/s that were appended without processing. This is an error in an immutable environment."s);
     }
 
     bool first = true;
 
-    for (auto& previousBlock : previousBlocks)
+    for (int i = 0; i < previousFinishedBlocks.size(); i++)
     {
+      auto& currFinishedBlock = previousFinishedBlocks[i];
+
+      // Verify that the block and its values are present in the known blocks.
+      if (!RefinementUtils::Contains(variableValuesPerBlock, currFinishedBlock)) {
+	return ResultType::Error("The Block: "s + std::to_string(currFinishedBlock) + " violates the processing order."s);
+      }
+
       if (first)
       {
-	commonVariables = RefinementUtils::GetKeysSet(variablesMappingsPerBlock[previousBlock]);
+	std::set<std::string> commonVariables = RefinementUtils::GetValuesSet(variableValuesPerBlock[currFinishedBlock]);
 	first = false;
-      }
-      else
-      {
-	std::set<std::string> currBlockVars = RefinementUtils::GetKeysSet(variablesMappingsPerBlock[previousBlock]);
+      } else {
+	std::set<std::string> currBlockVars = RefinementUtils::GetValuesSet(variablesValuesPerBlock[currFinishedBlock]);
+
+	// @TODO::(Juspreet) - This can be optimized from O(n^{2}) -> O(n(lg(n)) by defining an overloaded operator on `StrictlyDominates`, sorting, and asserting list equality.
+	for (int j = 0; j < i - 1; j++)
+	{
+	  auto& previousFinishedBlock = previousFinishedBlocks[j];
+	  
+	  bool dominated;
+	  {
+	    auto domRes = functionBlockGraph.StrictlyDominates(previousFinishedBlock, currFinishedBlock, dominated);
+	    if (!domRes.Succeeded) { return domRes; }
+	  }
+
+	  if (!dominated) {
+	    allDominated = false;
+	    break;
+	  }
+	  
+	}
+
+	// If all blocks are not dominated, then exit with an appropriate error message.
+	if (!allDominated)
+	  {
+	    return ResultType::Error("Blocks were not completed in the right order. Unexpected control flow graph. Finished: "s
+				     + RefinementUtils::StringJoin(", "s, previousFinishedBlocks)
+				     + " . Unfinished: "s
+				     + RefinementUtils::StringJoin(", "s, previousUnfinishedBlocks)
+				     );
+	  }
+	
 	commonVariables = RefinementUtils::SetIntersection(commonVariables, currBlockVars);
       }
     }
+
     return ResultType::Success();
   }
 
-  //@TODO::juspreet - Continue ripping and verifying.
   ResultType VariablesEnvironmentImmutable::getBlockBindersForPhiNode(const std::string& previousBlock, const std::string& blockName, const std::string& mappedVariableName, std::vector<std::string>& binders)
   {
     binders = getBlockBinders(previousBlock);
@@ -270,7 +308,7 @@ namespace liquid
     return ResultType::Success();
   }
 
-  ResultType VariablesEnvironmentImmutable::createPhiNodeWithoutCreatedBinders(const std::string& variable, const std::string& mappedVariableName, const FixpointType& type, const std::vector<std::string>& sourceVariableNames, const std::vector<std::string>& previousBlocks)
+  ResultType VariablesEnvironmentImmutable::createPhiNodeAssumingNoFutureBinders(const std::string& variable, const std::string& mappedVariableName, const FixpointType& type, const std::vector<std::string>& sourceVariableNames, const std::vector<std::string>& previousBlocks)
   {
     if (sourceVariableNames.size() != previousBlocks.size())
     {
@@ -293,7 +331,7 @@ namespace liquid
       }
 
       auto blockVariableMapping = sourceVariableNames[i];
-      // Ensure that the future binder is part of the current info
+      // Ensure that the future binder is part of the current info.
       if (!RefinementUtils::Contains(blockVariablesAndInfo, blockVariableMapping))
       {
 	blockVariablesAndInfo.push_back(blockVariableMapping);
@@ -301,12 +339,8 @@ namespace liquid
 
       std::string constraintName = "Variable_"s + previousBlock + "_"s + currentBlockName + "_"s + mappedVariableName;
 
-      // Create Variable Mappings for Future Binders (which are immutable)
+      // Create Variable Mappings for Future Binders (which are immutable).
       std::string variableName = blockVariableMapping;
-      if (RefinementUtils::ContainsKey(variablesMappingsPerBlock[previousBlock], blockVariableMapping))
-      {
-	variableName = variablesMappingsPerBlock[previousBlock][blockVariableMapping];
-      }
 
       std::string assignedExpr = "__value == "s + variableName;
 
@@ -314,7 +348,6 @@ namespace liquid
       if (!addConstRes.Succeeded) { return addConstRes; }
     }
 
-    variablesMappingsPerBlock[currentBlockName][variable] = mappedVariableName;
     variablesValuesPerBlock[currentBlockName].emplace(mappedVariableName);
     return ResultType::Success();
   }
@@ -331,14 +364,14 @@ namespace liquid
       return ResultType::Error("Expected phi node variables and associated block size to be the same"s);
     }
 
-    //Check if any parts of the phi node are variables that are not yet declared
+    // Check if any parts of the phi node are variables that are not yet declared.
     for (size_t i = 0, csize = previousBlocks.size(); i < csize; i++)
     {
       auto& previousBlock = previousBlocks[i];
       auto blockVariableMapping = sourceVariableNames[i];
 
-      //variable of a phi node hasn't been created yet
-      if (!RefinementUtils::ContainsKey(variablesMappingsPerBlock[previousBlock], blockVariableMapping))
+      // Variable of a phi node hasn't been created yet.
+      if (!RefinementUtils::ContainsKey(variablesValuesPerBlock[previousBlock], blockVariableMapping))
 	{
 	  auto futureBinderRes = constraintBuilder.CreateFutureBinder(blockVariableMapping, type);
 	  if (!futureBinderRes.Succeeded) { return futureBinderRes; }
@@ -354,7 +387,7 @@ namespace liquid
     return createPhiNodeInternal(variable, mappedVariableName, type, sourceVariableNames, previousBlocks);
   }
 
-  //@TODO:: (juspreet) - The recursive call here isn't clear. Verify.
+  //@TODO::(Juspreet) - Replace with Fixpoint Algorithm. To come in Part-3.
   ResultType VariablesEnvironmentImmutable::getBlockGuard(const std::string& blockName, std::string& blockGuard)
   {
     if (RefinementUtils::ContainsKey(cachedBlockGuards, blockName))
