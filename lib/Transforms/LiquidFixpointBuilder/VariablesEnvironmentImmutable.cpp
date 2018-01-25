@@ -379,7 +379,6 @@ namespace liquid
     
     for (const auto& successor : successors)
       {
-	variablesMappingsPerBlock[successor][transitionGuardName] = transitionGuardName;
 	variablesValuesPerBlock[successor].emplace(transitionGuardName);
       }
     
@@ -475,10 +474,17 @@ namespace liquid
     }
     
     // Add to the environment any variables which are unchanged in predecessors
+    // This block of code is hazy at best --> We may need to revisit it during for-loops. However, for now:
+    // *NO* variable that is assigned to can be changed. This is enforced in immutability (with the exception of for-loops).
     std::set<std::string> phiNodeVariables;
     for (auto& commonVariable : commonVariables)
     {
-      bool usingIdenticalMappings = std::all_of(previousBlocks.begin(), previousBlocks.end(), [&](std::string block) {
+      bool usingIdenticalMappings = true;
+
+      for (auto& currPreviousBlock: previousBlocks)
+      {
+	std::set<string> currPreviousBlockValueSet = RefinementUtils::GetValuesSet(variablesValuesPerBlock[ 
+      std::all_of(previousBlocks.begin(), previousBlocks.end(), [&](std::string block) {
 	  return variablesMappingsPerBlock[block][commonVariable] == variablesMappingsPerBlock[previousBlocks[0]][commonVariable];
 	});
       
