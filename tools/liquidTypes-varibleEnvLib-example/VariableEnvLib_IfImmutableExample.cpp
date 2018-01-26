@@ -37,7 +37,7 @@ public:
     return ResultType::Success();
   }
 
-  ResultType SttrictlyDominates(const std::string& firstBlockName, const std::string& secondBlockName, bool& result) const
+  ResultType StrictlyDominates(const std::string& firstBlockName, const std::string& secondBlockName, bool& result) const
   {
     result = (firstBlockName == "entry" && secondBlockName != "entry");
     return ResultType::Success();
@@ -55,7 +55,7 @@ std::string format(VariablesEnvironmentImmutable& env, std::string expression);
 int ifImmutableExample()
 {
   LLVMFunctionBlockGraph_IfImmutable llvmFunctionBlockGraph;
-  VariablesEnvironment env(llvmFunctionBlockGraph);
+  VariablesEnvironmentImmutable env(llvmFunctionBlockGraph);
 
   std::string str;
 

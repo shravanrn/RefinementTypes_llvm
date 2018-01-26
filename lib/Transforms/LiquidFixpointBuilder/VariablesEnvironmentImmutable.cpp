@@ -137,6 +137,32 @@ namespace liquid
 
     return ResultType::Success();
   }
+
+  ResultType VariablesEnvironmentImmutable::AddBranchInformation(const std::string& booleanVariable, const bool variableValue, const std::string& targetBlock)
+  {
+    // Verify the variable doesn't already exist.
+    if (!RefinementUtils::ContainsKey(variableTypes, booleanVariable))
+    {
+      return ResultType::Error("Missing variable: "s + booleanVariable);
+    }
+
+    // Enforce the variable type is Boolean.
+    if (variableTypes.at(booleanVariable) != FixpointType::GetBoolType())
+    {
+      return ResultType::Error("Expected boolean type for variable: "s + booleanVariable);
+    }
+
+    // Convert the variable into a Proposition for a Fixpoint Constraint.
+    const std::string assignedExpr = "__value <=> "s + (variableValue ? ""s : "~"s) + booleanVariable;
+    const std::string transitionGuardName = "__transition__"s + currentBlockName + "__"s + targetBlock;
+    
+    {
+      auto createdBinderRes = constraintBuilder.CreateBinderWithConstraints(transitionGuardName, FixpointType::GetBoolType(),  { assignedExpr });
+      if (!createdBinderRes.Succeeded) { return createdBinderRes; }
+    }
+
+    return ResultType::Success();
+  }
   
   ResultType VariablesEnvironmentImmutable::getCommonVariables(std::vector<std::string> previousBlocks, std::set<std::string>& commonVariables)
   {
@@ -481,17 +507,24 @@ namespace liquid
     {
       bool usingIdenticalMappings = true;
 
+      // Extract the variable values in the most current previous block as a set.
+      std::set<string> recentPreviousBlockValueSet = RefinementUtils::GetValuesSet(variablesValuesPerBlock[previousBlocks[0]]);
+
       for (auto& currPreviousBlock: previousBlocks)
       {
-	std::set<string> currPreviousBlockValueSet = RefinementUtils::GetValuesSet(variablesValuesPerBlock[ 
-      std::all_of(previousBlocks.begin(), previousBlocks.end(), [&](std::string block) {
-	  return variablesMappingsPerBlock[block][commonVariable] == variablesMappingsPerBlock[previousBlocks[0]][commonVariable];
-	});
+	// Extract the variable value in the current previous block. 
+	std::set<string> currPreviousBlockValueSet = RefinementUtils::GetValuesSet(variablesValuesPerBlock[currPreviousBlock]);
+
+	// Compare equality and conjunct with the condition.
+	// Questions:
+	// i) What to do if the value is in one block and the subsequent one ?
+	// ii) Is this ever possible, and if not, does this mean an error ?
+	usingIdenticalMappings = usingIdenticalMappings && (currPreviousBlockValueSet[commonVariable] == recentPreviousBlockValueSet[commonVariable])
+      }
       
       if (usingIdenticalMappings)
       {
-	variablesMappingsPerBlock[currentBlockName][commonVariable] = variablesMappingsPerBlock[previousBlocks[0]][commonVariable];
-	variablesValuesPerBlock[currentBlockName].emplace(variablesMappingsPerBlock[previousBlocks[0]][commonVariable]);
+	variablesValuesPerBlock[currentBlockName].emplace(recentPreviousBlockValueSet[commonVariable]);
       }
       else
       {
