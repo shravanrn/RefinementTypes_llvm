@@ -42,7 +42,6 @@ namespace liquid
       ResultType endBlock(const std::string& blockName);
 
     public:
-      Counter FreshState;
       FixpointConstraintBuilder constraintBuilder;
 
       VariablesEnvironmentImmutable(const FunctionBlockGraph& _functionBlockGraph) : functionBlockGraph(_functionBlockGraph) {}
