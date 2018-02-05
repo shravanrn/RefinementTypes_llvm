@@ -78,6 +78,7 @@ int ifImmutableExample()
   
   E(env.StartBlock("if.end"s));
   E(env.CreatePhiNode("e"s, FixpointType::GetIntType(), { "c"s, "d"s }, { "entry"s, "if.then"s }));
+  E(env.CreateImmutableVariable("ret"s, FixpointType::GetIntType(), {"__value == 5"}, format(env, "__value == {{e}}")));
 
   E(env.ToStringOrFailure(str));
 
