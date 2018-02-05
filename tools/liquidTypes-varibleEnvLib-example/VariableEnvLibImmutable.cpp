@@ -18,7 +18,7 @@ std::string format(VariablesEnvironmentImmutable& env, std::string expression)
   return expression;
 }
 
-// int ifImmutableExample();
+int ifImmutableExample();
 // int ifThenElseExample();
 // int forLoopExample();
 
@@ -32,8 +32,7 @@ int main()
   
   if(a == 1)
   {
-    // return ifImmutableExample();
-    return 0;
+    return ifImmutableExample();
   }
   else
   {
