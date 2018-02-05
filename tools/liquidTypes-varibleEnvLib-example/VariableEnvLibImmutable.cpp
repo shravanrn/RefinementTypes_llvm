@@ -11,7 +11,7 @@ std::string format(VariablesEnvironmentImmutable& env, std::string expression)
 
   while (std::regex_search(expression, m, r)) {
     std::string varname = m[1];
-    std::string replacement = env.GetVariableName(varname);
+    std::string replacement = varname; // Immutability means the varname is unchanged.
     expression = m.prefix().str() + replacement + m.suffix().str();
   }
 

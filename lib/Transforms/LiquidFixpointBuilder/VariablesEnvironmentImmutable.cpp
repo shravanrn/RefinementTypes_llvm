@@ -58,7 +58,7 @@ namespace liquid
 
     insertOrAssignVarType(variableTypes, variable, type);
     // @TODO::(Juspreet) - Is the Environment of bindings in a block ordered ? If so, is it FIFO/LIFO ?
-    variablesValuesPerBlock[currentBlockName].emplace(mappedVariableName);
+    variablesValuesPerBlock[currentBlockName].emplace_back(mappedVariableName);
 
     return ResultType::Success();
   }
@@ -107,7 +107,7 @@ namespace liquid
 
     // Make updates to Variable Mappings and Values for State Update of the Block
     insertOrAssignVarType(variableTypes, variable, type);
-    variablesValuesPerBlock[currentBlockName].emplace(mappedVariableName);
+    variablesValuesPerBlock[currentBlockName].emplace_back(mappedVariableName);
 
     return ResultType::Success();
   }
@@ -192,8 +192,8 @@ namespace liquid
       auto& currFinishedBlock = previousFinishedBlocks[i];
 
       // Verify that the block and its values are present in the known blocks.
-      if (!RefinementUtils::Contains(variablesValuesPerBlock, currFinishedBlock)) {
-	return ResultType::Error("The Block: "s + std::to_string(currFinishedBlock) + " violates the processing order."s);
+      if (!RefinementUtils::ContainsKey(variablesValuesPerBlock, currFinishedBlock)) {
+	return ResultType::Error("The Block: "s + currFinishedBlock + " violates the processing order."s);
       }
 
       if (first)
@@ -264,7 +264,7 @@ namespace liquid
     return ResultType::Success();
   }
 
-  ResultType VariablesEnvironment::createPhiNodeWithoutCreatedBinders(const std::string& variable, const std::string& mappedVariableName, const FixpointType& type, const std::vector<std::string>& sourceVariableNames, const std::vector<std::string>& previousBlocks)
+  ResultType VariablesEnvironmentImmutable::createPhiNodeWithoutCreatedBinders(const std::string& variable, const std::string& mappedVariableName, const FixpointType& type, const std::vector<std::string>& sourceVariableNames, const std::vector<std::string>& previousBlocks)
   {
     if (sourceVariableNames.size() != previousBlocks.size())
       {
@@ -306,7 +306,7 @@ namespace liquid
 	if (!addConstRes.Succeeded) { return addConstRes; }
       }
     
-    variablesValuesPerBlock[currentBlockName].emplace(mappedVariableName);
+    variablesValuesPerBlock[currentBlockName].emplace_back(mappedVariableName);
     return ResultType::Success();
   }
 
@@ -329,7 +329,11 @@ namespace liquid
       auto blockVariableMapping = sourceVariableNames[i];
 
       // Variable of a phi node hasn't been created yet.
-      if (!RefinementUtils::ContainsKey(variablesValuesPerBlock[previousBlock], blockVariableMapping))
+      std::map<std::string, int> variableMap;
+
+      for (auto const &currVar: variablesValuesPerBlock[previousBlock]) { variableMap[currVar] = 1; }
+      
+      if (!RefinementUtils::ContainsKey(variableMap, blockVariableMapping))
 	{
 	  auto futureBinderRes = constraintBuilder.CreateFutureBinder(blockVariableMapping, type);
 	  if (!futureBinderRes.Succeeded) { return futureBinderRes; }
@@ -405,7 +409,7 @@ namespace liquid
     
     for (const auto& successor : successors)
       {
-	variablesValuesPerBlock[successor].emplace(transitionGuardName);
+	variablesValuesPerBlock[successor].emplace_back(transitionGuardName);
       }
     
     return ResultType::Success();
@@ -508,28 +512,30 @@ namespace liquid
       bool usingIdenticalMappings = true;
 
       // Extract the variable values in the most current previous block as a set.
-      std::set<string> recentPreviousBlockValueSet = RefinementUtils::GetValuesSet(variablesValuesPerBlock[previousBlocks[0]]);
+      std::set<std::string> recentPreviousBlockValueSet = RefinementUtils::GetValuesSet(variablesValuesPerBlock[previousBlocks[0]]);
 
       for (auto& currPreviousBlock: previousBlocks)
       {
 	// Extract the variable values in the current previous block. 
-	std::set<string> currPreviousBlockValueSet = RefinementUtils::GetValuesSet(variablesValuesPerBlock[currPreviousBlock]);
+	std::set<std::string> currPreviousBlockValueSet = RefinementUtils::GetValuesSet(variablesValuesPerBlock[currPreviousBlock]);
 
 	// Compare equality and conjunct with the condition.
 	// Questions:
 	// i) It seems this check is useless. This can only be false if a variable is deleted. That seems impossible in the immutable case.
-	usingIdenticalMappings = usingIdenticalMappings && (currPreviousBlockValueSet[commonVariable] == recentPreviousBlockValueSet[commonVariable]);
+	bool inCurrPreviousBlock = (currPreviousBlockValueSet.find(commonVariable) != currPreviousBlockValueSet.end()) ;
+	bool inRecentPreviousBlock = (recentPreviousBlockValueSet.find(commonVariable) != recentPreviousBlockValueSet.end());
+	usingIdenticalMappings = usingIdenticalMappings && inCurrPreviousBlock && inRecentPreviousBlock;
       }
       
       if (usingIdenticalMappings)
       {
 	// Append the common variable from the predecessors to the current block.
 	// (NOTE): This will (again), break when we are handling for-loops (with the current way variablesValuesPerBlock is used).
-	variablesValuesPerBlock[currentBlockName].emplace(commonVariable);
+	variablesValuesPerBlock[currentBlockName].emplace_back(commonVariable);
       }
       else
       {
-	return ResultType::Error("phiNodeVariables was not empty while verifying immutability of Common Variables. The variable: " + commonVariable + " was found mutated!";
+	return ResultType::Error("phiNodeVariables was not empty while verifying immutability of Common Variables. The variable: " + commonVariable + " was found mutated!");
       }
     }
 

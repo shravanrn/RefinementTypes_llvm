@@ -70,7 +70,7 @@ int ifImmutableExample()
   E(env.CreateImmutableVariable("cmp"s, FixpointType::GetBoolType(), {}, format(env, " __value <=> {{a}} == 4"s)));
 
   E(env.AddBranchInformation("cmp"s, true, "if.then"));
-  E(env.AddBranchinformation("cmp"s, false, "if.end"));
+  E(env.AddBranchInformation("cmp"s, false, "if.end"));
 
   E(env.StartBlock("if.then"s));
   E(env.CreateImmutableVariable("d"s, FixpointType::GetIntType(), {}, format(env, "__value == {{b}}"s)));
